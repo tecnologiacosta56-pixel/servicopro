@@ -29,7 +29,40 @@ if menu == "Dashboard":
 # =========================
 elif menu == "Clientes":
     st.subheader("👤 Clientes")
-    st.info("Em desenvolvimento...")
+
+    aba = st.radio("Opção", ["Cadastrar", "Listar"], horizontal=True)
+
+    # CADASTRAR CLIENTE
+    if aba == "Cadastrar":
+        nome = st.text_input("Nome do cliente")
+        contato = st.text_input("Contato")
+
+        if st.button("Salvar cliente"):
+            if nome:
+                db.collection("clientes").add({
+                    "nome": nome,
+                    "contato": contato
+                })
+                st.success("Cliente salvo com sucesso!")
+            else:
+                st.warning("Digite o nome do cliente")
+
+    # LISTAR CLIENTES
+    elif aba == "Listar":
+        clientes = db.collection("clientes").stream()
+
+        encontrou = False
+
+        for c in clientes:
+            encontrou = True
+            dados = c.to_dict()
+
+            st.markdown("---")
+            st.write(f"👤 Nome: {dados.get('nome')}")
+            st.write(f"📞 Contato: {dados.get('contato')}")
+
+        if not encontrou:
+            st.warning("Nenhum cliente cadastrado")
 
 # =========================
 # 🔧 SERVIÇOS
