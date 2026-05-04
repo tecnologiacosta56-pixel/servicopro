@@ -10,6 +10,9 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # 🎯 CONFIG
+st.set_page_config(page_title="ServiçoPro 2", layout="wide")
+
+# 🎨 ESTILO GLOBAL
 st.markdown("""
 <style>
 .main {
@@ -39,29 +42,28 @@ st.markdown("""
     margin-bottom: 10px;
 }
 </style>
-""", unsafe_allow_html=True)(page_title="ServiçoPro 2", layout="wide")
+""", unsafe_allow_html=True)
 
 st.title("🚀 ServiçoPro 2")
 
-# 📌 MENU LATERAL
+# 📌 MENU
 menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "Serviços", "OS"])
 
 # =========================
-# 📊 DASHBOARD
+# DASHBOARD
 # =========================
 if menu == "Dashboard":
     st.subheader("📊 Visão Geral")
-    st.write("Sistema em funcionamento ✔️")
+    st.write("Sistema funcionando ✔️")
 
 # =========================
-# 👤 CLIENTES
+# CLIENTES
 # =========================
 elif menu == "Clientes":
     st.subheader("👤 Clientes")
 
     aba = st.radio("Opção", ["Cadastrar", "Listar"], horizontal=True)
 
-    # CADASTRAR CLIENTE
     if aba == "Cadastrar":
         nome = st.text_input("Nome do cliente")
         contato = st.text_input("Contato")
@@ -76,7 +78,6 @@ elif menu == "Clientes":
             else:
                 st.warning("Digite o nome do cliente")
 
-    # LISTAR CLIENTES
     elif aba == "Listar":
         clientes = db.collection("clientes").stream()
 
@@ -86,29 +87,32 @@ elif menu == "Clientes":
             encontrou = True
             dados = c.to_dict()
 
-            st.markdown("---")
-            st.write(f"👤 Nome: {dados.get('nome')}")
-            st.write(f"📞 Contato: {dados.get('contato')}")
+            st.markdown(f"""
+            <div class="card">
+                <b>👤 Nome:</b> {dados.get('nome')}<br>
+                <b>📞 Contato:</b> {dados.get('contato')}
+            </div>
+            """, unsafe_allow_html=True)
 
         if not encontrou:
             st.warning("Nenhum cliente cadastrado")
 
 # =========================
-# 🔧 SERVIÇOS
+# SERVIÇOS
 # =========================
 elif menu == "Serviços":
     st.subheader("🔧 Serviços")
     st.info("Em desenvolvimento...")
 
 # =========================
-# 📋 ORDENS DE SERVIÇO (OS)
+# OS (ORDENS DE SERVIÇO)
 # =========================
 elif menu == "OS":
     st.title("📋 Ordens de Serviço")
 
-    aba = st.radio("Escolha uma opção", ["Cadastrar OS", "Listar OS"], horizontal=True)
+    aba = st.radio("Escolha", ["Cadastrar OS", "Listar OS"], horizontal=True)
 
-    # -------- CADASTRAR OS --------
+    # CADASTRAR OS
     if aba == "Cadastrar OS":
         st.subheader("📝 Nova Ordem de Serviço")
 
@@ -125,40 +129,40 @@ elif menu == "OS":
                     "valor": valor,
                     "status": status
                 })
-                st.success("✅ Ordem de serviço salva com sucesso!")
+                st.success("✅ Ordem salva com sucesso!")
             else:
-                st.warning("⚠️ Preencha os campos obrigatórios.")
+                st.warning("Preencha os campos obrigatórios")
 
-    # -------- LISTAR OS --------
+    # LISTAR OS (VISUAL MELHORADO)
     elif aba == "Listar OS":
-    st.subheader("📂 Lista de Ordens")
+        st.subheader("📂 Lista de Ordens")
 
-    ordens = db.collection("ordens").stream()
+        ordens = db.collection("ordens").stream()
 
-    encontrou = False
+        encontrou = False
 
-    for os in ordens:
-        encontrou = True
-        dados = os.to_dict()
+        for os in ordens:
+            encontrou = True
+            dados = os.to_dict()
 
-        status = dados.get("status")
+            status = dados.get("status")
 
-        # 🎨 COR POR STATUS
-        if status == "Novo":
-            cor = "#2196F3"
-        elif status == "Em andamento":
-            cor = "#FF9800"
-        else:
-            cor = "#4CAF50"
+            # 🎨 COR DO STATUS
+            if status == "Novo":
+                cor = "#2196F3"
+            elif status == "Em andamento":
+                cor = "#FF9800"
+            else:
+                cor = "#4CAF50"
 
-        st.markdown(f"""
-        <div class="card">
-            <b>👤 Cliente:</b> {dados.get('cliente')}<br>
-            <b>🔧 Serviço:</b> {dados.get('servico')}<br>
-            <b>💰 Valor:</b> R$ {dados.get('valor')}<br>
-            <b style="color:{cor}">📌 Status: {status}</b>
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="card">
+                <b>👤 Cliente:</b> {dados.get('cliente')}<br>
+                <b>🔧 Serviço:</b> {dados.get('servico')}<br>
+                <b>💰 Valor:</b> R$ {dados.get('valor')}<br>
+                <b style="color:{cor}">📌 Status: {status}</b>
+            </div>
+            """, unsafe_allow_html=True)
 
-    if not encontrou:
-        st.warning("Nenhuma ordem encontrada.")
+        if not encontrou:
+            st.warning("Nenhuma ordem encontrada.")
