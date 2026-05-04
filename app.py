@@ -1,82 +1,105 @@
 import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, firestore
+from google.cloud import firestore
 from datetime import datetime
 
 # =========================
-# FIREBASE
+# CONFIG
 # =========================
-if not firebase_admin._apps:
-    cred = credentials.Certificate("servico-pro-firebase-adminsdk-fbsvc-02c8b2d43b.json")
-    firebase_admin.initialize_app(cred)
+st.set_page_config(page_title="ServicoPro SaaS", layout="wide")
 
-db = firestore.client()
+# conexão segura com Firebase via Secrets
+db = firestore.Client.from_service_account_info(
+    st.secrets["firebase"]
+)
 
 # =========================
 # SESSION
 # =========================
-if "logged" not in st.session_state:
-    st.session_state.logged = False
+if "user" not in st.session_state:
+    st.session_state.user = None
 
 # =========================
-# LOGIN
+# LOGIN (BLINDADO - SEM TRAVAR)
 # =========================
-if not st.session_state.logged:
-    st.title("🔐 Sistema ServiçoPro")
+def login(email, senha):
+    try:
+        if not email or not senha:
+            return None
+
+        doc_ref = db.collection("users").document(email.strip())
+
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return None
+
+        data = doc.to_dict()
+
+        if data.get("password") == senha.strip():
+            return data
+
+        return None
+
+    except Exception as e:
+        st.error("Erro de conexão com banco")
+        return None
+
+# =========================
+# TELA LOGIN
+# =========================
+if st.session_state.user is None:
+    st.title("🔐 ServiçoPro SaaS")
 
     email = st.text_input("Email")
     senha = st.text_input("Senha", type="password")
 
     if st.button("Entrar"):
-        users = db.collection("users").stream()
+        with st.spinner("Validando acesso..."):
+            user = login(email, senha)
 
-        for u in users:
-            data = u.to_dict()
-
-            if (
-                data.get("email", "").strip() == email.strip()
-                and data.get("password", "").strip() == senha.strip()
-            ):
-                st.session_state.logged = True
-                st.rerun()
-
-        st.error("Login inválido")
+        if user:
+            st.session_state.user = user
+            st.rerun()
+        else:
+            st.error("Login inválido")
 
     st.stop()
 
 # =========================
-# MENU
+# USUÁRIO LOGADO
 # =========================
-pagina = st.sidebar.selectbox(
-    "Navegação",
-    ["Dashboard", "Clientes", "Serviços"]
-)
+user = st.session_state.user
+
+st.sidebar.success(f"Logado: {user.get('email')}")
 
 if st.sidebar.button("Sair"):
-    st.session_state.logged = False
+    st.session_state.user = None
     st.rerun()
+
+# =========================
+# MENU
+# =========================
+menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "Serviços"])
 
 # =========================
 # DASHBOARD
 # =========================
-if pagina == "Dashboard":
-    st.title("📊 Dashboard")
+if menu == "Dashboard":
+    st.title("📊 Dashboard SaaS")
 
-    total_clientes = len(list(db.collection("clientes").stream()))
-    total_servicos = len(list(db.collection("servicos").stream()))
+    clientes = list(db.collection("clientes").stream())
+    servicos = list(db.collection("servicos").stream())
 
-    col1, col2 = st.columns(2)
-
-    col1.metric("Clientes", total_clientes)
-    col2.metric("Serviços", total_servicos)
+    st.metric("Clientes", len(clientes))
+    st.metric("Serviços", len(servicos))
 
 # =========================
 # CLIENTES
 # =========================
-elif pagina == "Clientes":
+elif menu == "Clientes":
     st.title("👤 Clientes")
 
-    nome = st.text_input("Nome do cliente")
+    nome = st.text_input("Nome")
     servico = st.text_input("Serviço")
 
     if st.button("Salvar cliente"):
@@ -84,122 +107,68 @@ elif pagina == "Clientes":
             db.collection("clientes").add({
                 "nome": nome,
                 "servico": servico,
+                "user": user["email"],
                 "created_at": datetime.now()
             })
+
             st.success("Cliente salvo!")
             st.rerun()
-        else:
-            st.warning("Preencha todos os campos")
 
     st.divider()
-    st.subheader("Lista de clientes")
-
-    if "editando" not in st.session_state:
-        st.session_state.editando = None
 
     clientes = db.collection("clientes").stream()
 
     for c in clientes:
         d = c.to_dict()
-        cid = c.id
 
-        col1, col2, col3 = st.columns([4,1,1])
+        if d.get("user") != user["email"]:
+            continue
 
-        col1.write(f"👤 {d.get('nome')} - {d.get('servico')}")
-
-        # EDITAR
-        if col2.button("✏️", key=f"edit_{cid}"):
-            st.session_state.editando = cid
-
-        # EXCLUIR
-        if col3.button("🗑️", key=f"del_{cid}"):
-            st.session_state[f"confirm_{cid}"] = True
-
-        # CONFIRMAÇÃO
-        if st.session_state.get(f"confirm_{cid}"):
-            st.warning("Tem certeza que deseja excluir?")
-
-            c1, c2 = st.columns(2)
-
-            if c1.button("Cancelar", key=f"cancel_{cid}"):
-                st.session_state[f"confirm_{cid}"] = False
-
-            if c2.button("Confirmar", key=f"ok_{cid}"):
-                db.collection("clientes").document(cid).delete()
-                st.success("Excluído!")
-                st.rerun()
-
-        # EDIÇÃO
-        if st.session_state.editando == cid:
-            novo_nome = st.text_input("Novo nome", value=d.get("nome"), key=f"n_{cid}")
-            novo_servico = st.text_input("Novo serviço", value=d.get("servico"), key=f"s_{cid}")
-
-            if st.button("Salvar", key=f"save_{cid}"):
-                db.collection("clientes").document(cid).update({
-                    "nome": novo_nome,
-                    "servico": novo_servico,
-                    "updated_at": datetime.now()
-                })
-                st.session_state.editando = None
-                st.success("Atualizado!")
-                st.rerun()
+        st.write(f"👤 {d['nome']} | {d['servico']}")
 
 # =========================
 # SERVIÇOS
 # =========================
-elif pagina == "Serviços":
+elif menu == "Serviços":
     st.title("📋 Serviços")
 
-    # carregar clientes
-    clientes_ref = list(db.collection("clientes").stream())
-    lista_clientes = {c.id: c.to_dict().get("nome") for c in clientes_ref}
+    clientes = db.collection("clientes").stream()
 
-    if not lista_clientes:
-        st.warning("Cadastre um cliente primeiro!")
+    lista = {
+        c.id: c.to_dict()["nome"]
+        for c in clientes
+        if c.to_dict().get("user") == user["email"]
+    }
+
+    if not lista:
+        st.warning("Cadastre um cliente primeiro")
         st.stop()
 
     cliente_id = st.selectbox(
-        "Selecionar cliente",
-        options=list(lista_clientes.keys()),
-        format_func=lambda x: lista_clientes[x]
+        "Cliente",
+        list(lista.keys()),
+        format_func=lambda x: lista[x]
     )
 
     descricao = st.text_area("Descrição")
     prioridade = st.selectbox("Prioridade", ["Baixa", "Média", "Alta", "Urgente"])
 
     if st.button("Criar serviço"):
-        if cliente_id and descricao:
+        if descricao:
+            db.collection("servicos").add({
+                "cliente_id": cliente_id,
+                "cliente_nome": lista[cliente_id],
+                "descricao": descricao,
+                "prioridade": prioridade,
+                "user": user["email"],
+                "status": "Aberto",
+                "created_at": datetime.now()
+            })
 
-            cliente_nome = lista_clientes.get(cliente_id)
-
-            # evitar duplicado
-            servicos_existentes = db.collection("servicos").stream()
-            duplicado = False
-
-            for s in servicos_existentes:
-                d = s.to_dict()
-                if d.get("cliente_id") == cliente_id and d.get("descricao") == descricao:
-                    duplicado = True
-                    break
-
-            if duplicado:
-                st.warning("Serviço já existe!")
-
-            else:
-                db.collection("servicos").add({
-                    "cliente_id": cliente_id,
-                    "cliente_nome": cliente_nome,
-                    "descricao": descricao,
-                    "status": "Aberto",
-                    "prioridade": prioridade,
-                    "created_at": datetime.now()
-                })
-
-                st.success("Serviço criado com sucesso!")
-                st.rerun()
-
+            st.success("Serviço criado!")
+            st.rerun()
         else:
-            st.warning("Preencha todos os campos")
+            st.warning("Preencha a descrição")
 
     st.divider()
 
@@ -208,9 +177,11 @@ elif pagina == "Serviços":
     for s in servicos:
         d = s.to_dict()
 
+        if d.get("user") != user["email"]:
+            continue
+
         st.write(
-            f"👤 {d.get('cliente_nome')} | "
-            f"📝 {d.get('descricao')} | "
-            f"⚡ {d.get('prioridade')} | "
-            f"🔄 {d.get('status')}"
+            f"👤 {d['cliente_nome']} | "
+            f"📝 {d['descricao']} | "
+            f"⚡ {d['prioridade']}"
         )
