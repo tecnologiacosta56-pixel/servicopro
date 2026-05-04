@@ -1,6 +1,7 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+import uuid
 
 # =========================
 # FIREBASE INIT
@@ -18,13 +19,13 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 if "empresa_id" not in st.session_state:
-    st.session_state.empresa_id = "empresa_demo_001"
+    st.session_state.empresa_id = None
 
 # =========================
 # LOGIN SIMPLIFICADO
 # =========================
 def login():
-    st.title("🔐 Login ServiçoPro")
+    st.title("🔐 ServiçoPro Login")
 
     email = st.text_input("Email")
     password = st.text_input("Senha", type="password")
@@ -38,7 +39,30 @@ def login():
                 "email": email
             }
 
-            st.success("Login realizado")
+            # 🔥 BUSCAR EMPRESA DO USUÁRIO
+            empresas = db.collection("empresas") \
+                .where("dono_uid", "==", user.uid) \
+                .stream()
+
+            empresa = None
+            for e in empresas:
+                empresa = e
+
+            # 🔥 SE NÃO EXISTIR → CRIA AUTOMATICAMENTE
+            if not empresa:
+                empresa_id = str(uuid.uuid4())
+
+                db.collection("empresas").document(empresa_id).set({
+                    "nome": "Minha Empresa",
+                    "dono_uid": user.uid
+                })
+
+                st.session_state.empresa_id = empresa_id
+
+            else:
+                st.session_state.empresa_id = empresa.id
+
+            st.success("Login realizado com sucesso 🚀")
             st.rerun()
 
         except:
@@ -50,10 +74,11 @@ def login():
 def logout():
     if st.sidebar.button("Sair"):
         st.session_state.user = None
+        st.session_state.empresa_id = None
         st.rerun()
 
 # =========================
-# APP
+# APP START
 # =========================
 if not st.session_state.user:
     login()
@@ -63,6 +88,7 @@ user = st.session_state.user
 empresa_id = st.session_state.empresa_id
 
 st.sidebar.write(f"👤 {user['email']}")
+st.sidebar.write(f"🏢 Empresa: {empresa_id}")
 logout()
 
 menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "OS"])
@@ -71,31 +97,19 @@ menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "OS"])
 # DASHBOARD
 # =========================
 if menu == "Dashboard":
-    st.title("📊 Dashboard")
+    st.title("📊 Dashboard SaaS")
 
-    clientes = list(db.collection("empresas")
-                    .document(empresa_id)
-                    .collection("clientes")
-                    .stream())
+    clientes = db.collection("empresas").document(empresa_id)\
+        .collection("clientes").stream()
 
-    ordens = list(db.collection("empresas")
-                  .document(empresa_id)
-                  .collection("ordens")
-                  .stream())
+    ordens = db.collection("empresas").document(empresa_id)\
+        .collection("ordens").stream()
 
-    total_clientes = len(clientes)
-    total_os = len(ordens)
-
-    faturamento = 0
-    for o in ordens:
-        try:
-            faturamento += float(o.to_dict().get("valor", 0))
-        except:
-            pass
+    total_clientes = len(list(clientes))
+    total_os = len(list(ordens))
 
     st.metric("Clientes", total_clientes)
-    st.metric("OS", total_os)
-    st.metric("Faturamento", f"R$ {faturamento:.2f}")
+    st.metric("Ordens", total_os)
 
 # =========================
 # CLIENTES
@@ -106,25 +120,16 @@ elif menu == "Clientes":
     nome = st.text_input("Nome")
     servico = st.text_input("Serviço")
 
-    if st.button("Salvar Cliente"):
+    if st.button("Salvar"):
         db.collection("empresas").document(empresa_id)\
-          .collection("clientes").add({
-            "nome": nome,
-            "servico": servico
-          })
-        st.success("Cliente salvo")
-
-    st.subheader("Lista")
-
-    clientes = db.collection("empresas").document(empresa_id)\
-        .collection("clientes").stream()
-
-    for c in clientes:
-        d = c.to_dict()
-        st.write(f"👤 {d.get('nome')} - {d.get('servico')}")
+            .collection("clientes").add({
+                "nome": nome,
+                "servico": servico
+            })
+        st.success("Cliente criado")
 
 # =========================
-# ORDENS DE SERVIÇO
+# ORDENS
 # =========================
 elif menu == "OS":
     st.title("📄 Ordens de Serviço")
@@ -132,29 +137,15 @@ elif menu == "OS":
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
     valor = st.number_input("Valor", min_value=0.0)
+
     status = st.selectbox("Status", ["Novo", "Em andamento", "Finalizado"])
 
     if st.button("Criar OS"):
         db.collection("empresas").document(empresa_id)\
-          .collection("ordens").add({
-            "cliente": cliente,
-            "servico": servico,
-            "valor": valor,
-            "status": status
-          })
+            .collection("ordens").add({
+                "cliente": cliente,
+                "servico": servico,
+                "valor": valor,
+                "status": status
+            })
         st.success("OS criada")
-
-    st.subheader("Lista de OS")
-
-    ordens = db.collection("empresas").document(empresa_id)\
-        .collection("ordens").stream()
-
-    for o in ordens:
-        d = o.to_dict()
-
-        st.write(f"""
-        👤 {d.get('cliente')}
-        🔧 {d.get('servico')}
-        💰 {d.get('valor')}
-        📌 {d.get('status')}
-        """)
