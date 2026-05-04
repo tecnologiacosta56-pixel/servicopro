@@ -7,14 +7,29 @@ from datetime import datetime
 # =========================
 st.set_page_config(page_title="ServicoPro SaaS", layout="wide")
 
-# FIREBASE
+# =========================
+# FIREBASE CONNECTION
+# =========================
 try:
     db = firestore.Client.from_service_account_info(
         st.secrets["firebase"]
     )
 except Exception as e:
-    st.error("Erro ao conectar Firebase. Verifique Secrets.")
+    st.error("Erro ao inicializar Firebase")
+    st.error(e)
     st.stop()
+
+# =========================
+# 🔥 TESTE DE CONEXÃO (DEBUG)
+# =========================
+st.write("🚀 Testando conexão Firebase...")
+
+try:
+    users_debug = list(db.collection("users").stream())
+    st.write("✔ Conexão OK - Users encontrados:", len(users_debug))
+except Exception as e:
+    st.error("❌ Erro ao acessar Firestore")
+    st.error(e)
 
 # =========================
 # SESSION
@@ -23,7 +38,7 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # =========================
-# LOGIN ROBUSTO
+# LOGIN
 # =========================
 def login(email, senha):
     try:
@@ -32,16 +47,17 @@ def login(email, senha):
         for u in users:
             data = u.to_dict()
 
-            db_email = str(data.get("email", "")).strip().lower()
-            db_pass = str(data.get("password", "")).strip()
-
-            if db_email == email.strip().lower() and db_pass == senha.strip():
+            if (
+                data.get("email", "").strip().lower() == email.strip().lower()
+                and data.get("password", "").strip() == senha.strip()
+            ):
                 return data
 
         return None
 
     except Exception as e:
         st.error("Erro ao acessar banco de dados")
+        st.error(e)
         return None
 
 # =========================
@@ -66,7 +82,7 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================
-# USUÁRIO
+# USUÁRIO LOGADO
 # =========================
 user = st.session_state.user
 
@@ -95,7 +111,8 @@ if menu == "Dashboard":
         st.metric("Serviços", len(servicos))
 
     except Exception as e:
-        st.error("Erro ao carregar dados do Firestore")
+        st.error("Erro ao carregar dashboard")
+        st.error(e)
 
 # =========================
 # CLIENTES
@@ -120,23 +137,13 @@ elif menu == "Clientes":
 
     st.divider()
 
-    try:
-        clientes = db.collection("clientes").stream()
+    clientes = db.collection("clientes").stream()
 
-        encontrou = False
+    for c in clientes:
+        d = c.to_dict()
 
-        for c in clientes:
-            d = c.to_dict()
-
-            if d.get("user") == user["email"]:
-                encontrou = True
-                st.write(f"👤 {d.get('nome')} | {d.get('servico')}")
-
-        if not encontrou:
-            st.info("Nenhum cliente encontrado")
-
-    except Exception:
-        st.error("Erro ao carregar clientes")
+        if d.get("user") == user["email"]:
+            st.write(f"👤 {d.get('nome')} | {d.get('servico')}")
 
 # =========================
 # SERVIÇOS
@@ -144,63 +151,54 @@ elif menu == "Clientes":
 elif menu == "Serviços":
     st.title("📋 Serviços")
 
-    try:
-        clientes = db.collection("clientes").stream()
+    clientes = db.collection("clientes").stream()
 
-        lista = {}
+    lista = {
+        c.id: c.to_dict()["nome"]
+        for c in clientes
+        if c.to_dict().get("user") == user["email"]
+    }
 
-        for c in clientes:
-            d = c.to_dict()
-            if d.get("user") == user["email"]:
-                lista[c.id] = d.get("nome")
+    if not lista:
+        st.warning("Nenhum cliente cadastrado")
+        st.stop()
 
-        if not lista:
-            st.warning("Nenhum cliente cadastrado ainda")
-            st.stop()
+    cliente_id = st.selectbox(
+        "Cliente",
+        list(lista.keys()),
+        format_func=lambda x: lista[x]
+    )
 
-        cliente_id = st.selectbox(
-            "Cliente",
-            list(lista.keys()),
-            format_func=lambda x: lista[x]
-        )
+    descricao = st.text_area("Descrição")
+    prioridade = st.selectbox("Prioridade", ["Baixa", "Média", "Alta", "Urgente"])
 
-        descricao = st.text_area("Descrição")
-        prioridade = st.selectbox("Prioridade", ["Baixa", "Média", "Alta", "Urgente"])
+    if st.button("Criar serviço"):
+        if descricao:
+            db.collection("servicos").add({
+                "cliente_id": cliente_id,
+                "cliente_nome": lista[cliente_id],
+                "descricao": descricao,
+                "prioridade": prioridade,
+                "user": user["email"],
+                "status": "Aberto",
+                "created_at": datetime.now()
+            })
 
-        if st.button("Criar serviço"):
-            if descricao:
-                db.collection("servicos").add({
-                    "cliente_id": cliente_id,
-                    "cliente_nome": lista[cliente_id],
-                    "descricao": descricao,
-                    "prioridade": prioridade,
-                    "user": user["email"],
-                    "status": "Aberto",
-                    "created_at": datetime.now()
-                })
+            st.success("Serviço criado!")
+            st.rerun()
+        else:
+            st.warning("Preencha a descrição")
 
-                st.success("Serviço criado!")
-                st.rerun()
+    st.divider()
 
-        st.divider()
+    servicos = db.collection("servicos").stream()
 
-        servicos = db.collection("servicos").stream()
+    for s in servicos:
+        d = s.to_dict()
 
-        encontrou = False
-
-        for s in servicos:
-            d = s.to_dict()
-
-            if d.get("user") == user["email"]:
-                encontrou = True
-                st.write(
-                    f"👤 {d.get('cliente_nome')} | "
-                    f"📝 {d.get('descricao')} | "
-                    f"⚡ {d.get('prioridade')}"
-                )
-
-        if not encontrou:
-            st.info("Nenhum serviço encontrado")
-
-    except Exception:
-        st.error("Erro ao carregar serviços")
+        if d.get("user") == user["email"]:
+            st.write(
+                f"👤 {d.get('cliente_nome')} | "
+                f"📝 {d.get('descricao')} | "
+                f"⚡ {d.get('prioridade')}"
+            )
