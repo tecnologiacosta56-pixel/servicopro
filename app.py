@@ -131,21 +131,34 @@ elif menu == "OS":
 
     # -------- LISTAR OS --------
     elif aba == "Listar OS":
-        st.subheader("📂 Lista de Ordens")
+    st.subheader("📂 Lista de Ordens")
 
-        ordens = db.collection("ordens").stream()
+    ordens = db.collection("ordens").stream()
 
-        encontrou = False
+    encontrou = False
 
-        for os in ordens:
-            encontrou = True
-            dados = os.to_dict()
+    for os in ordens:
+        encontrou = True
+        dados = os.to_dict()
 
-            st.markdown("---")
-            st.write(f"👤 Cliente: {dados.get('cliente')}")
-            st.write(f"🔧 Serviço: {dados.get('servico')}")
-            st.write(f"💰 Valor: R$ {dados.get('valor')}")
-            st.write(f"📌 Status: {dados.get('status')}")
+        status = dados.get("status")
 
-        if not encontrou:
-            st.warning("Nenhuma ordem encontrada.")
+        # 🎨 COR POR STATUS
+        if status == "Novo":
+            cor = "#2196F3"
+        elif status == "Em andamento":
+            cor = "#FF9800"
+        else:
+            cor = "#4CAF50"
+
+        st.markdown(f"""
+        <div class="card">
+            <b>👤 Cliente:</b> {dados.get('cliente')}<br>
+            <b>🔧 Serviço:</b> {dados.get('servico')}<br>
+            <b>💰 Valor:</b> R$ {dados.get('valor')}<br>
+            <b style="color:{cor}">📌 Status: {status}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if not encontrou:
+        st.warning("Nenhuma ordem encontrada.")
