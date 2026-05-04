@@ -1,6 +1,8 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
+import plotly.express as px
+import pandas as pd
 
 # =========================
 # FIREBASE INIT
@@ -21,7 +23,7 @@ st.set_page_config(
 )
 
 # =========================
-# STYLE (PRODUTO VISUAL)
+# STYLE
 # =========================
 st.markdown("""
 <style>
@@ -42,18 +44,11 @@ h1, h2, h3 {
     margin-bottom: 10px;
 }
 
-.metric-box {
-    background: #161B22;
-    padding: 15px;
-    border-radius: 12px;
-    text-align: center;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
 # =========================
-# TEMP EMPRESA (SEM LOGIN AINDA)
+# EMPRESA TEMP (SEM LOGIN AINDA)
 # =========================
 empresa_id = "empresa_demo_001"
 
@@ -66,10 +61,10 @@ menu = st.sidebar.selectbox(
 )
 
 # =========================
-# DASHBOARD (UPGRADE REAL)
+# DASHBOARD (COM GRÁFICOS)
 # =========================
 if menu == "Dashboard":
-    st.title("📊 Painel de Controle SaaS")
+    st.title("📊 Painel Executivo SaaS")
 
     ordens = list(db.collection("empresas")
                   .document(empresa_id)
@@ -83,39 +78,85 @@ if menu == "Dashboard":
     total_clientes = len(clientes)
 
     faturamento = 0
-    abertas = 0
-    concluidas = 0
+
+    status_count = {
+        "Novo": 0,
+        "Em andamento": 0,
+        "Finalizado": 0
+    }
+
+    dados = []
 
     for o in ordens:
         d = o.to_dict()
-        faturamento += float(d.get("valor", 0))
 
-        if d.get("status") == "Novo":
-            abertas += 1
-        if d.get("status") == "Finalizado":
-            concluidas += 1
+        valor = float(d.get("valor", 0))
+        faturamento += valor
 
-    col1, col2, col3, col4 = st.columns(4)
+        status = d.get("status", "Novo")
+        if status in status_count:
+            status_count[status] += 1
 
-    col1.metric("📦 OS Total", total_os)
+        dados.append({
+            "Cliente": d.get("cliente"),
+            "Valor": valor
+        })
+
+    # =========================
+    # MÉTRICAS
+    # =========================
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("📦 OS", total_os)
     col2.metric("👥 Clientes", total_clientes)
     col3.metric("💰 Faturamento", f"R$ {faturamento:.2f}")
-    col4.metric("✅ Concluídas", concluidas)
 
     st.divider()
 
-    st.subheader("📌 Visão rápida do sistema")
+    # =========================
+    # GRÁFICO STATUS
+    # =========================
+    st.subheader("📌 Status das Ordens")
 
-    st.write(f"🔵 OS em aberto: {abertas}")
-    st.write(f"🟢 OS finalizadas: {concluidas}")
+    df_status = pd.DataFrame({
+        "Status": list(status_count.keys()),
+        "Quantidade": list(status_count.values())
+    })
+
+    fig1 = px.bar(
+        df_status,
+        x="Status",
+        y="Quantidade",
+        text="Quantidade"
+    )
+
+    st.plotly_chart(fig1, use_container_width=True)
+
+    # =========================
+    # GRÁFICO FATURAMENTO
+    # =========================
+    st.subheader("💰 Faturamento por Cliente")
+
+    df = pd.DataFrame(dados)
+
+    if not df.empty:
+        fig2 = px.line(
+            df,
+            x="Cliente",
+            y="Valor",
+            markers=True
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("Sem dados ainda")
 
 # =========================
 # CLIENTES
 # =========================
 elif menu == "Clientes":
-    st.title("👥 Gestão de Clientes")
+    st.title("👥 Clientes")
 
-    nome = st.text_input("Nome do cliente")
+    nome = st.text_input("Nome")
     servico = st.text_input("Serviço")
 
     if st.button("Salvar Cliente"):
@@ -124,21 +165,18 @@ elif menu == "Clientes":
                 "nome": nome,
                 "servico": servico
             })
-        st.success("Cliente criado com sucesso")
+        st.success("Cliente criado")
 
     st.divider()
-
-    st.subheader("Lista de Clientes")
 
     clientes = db.collection("empresas").document(empresa_id)\
         .collection("clientes").stream()
 
     for c in clientes:
         d = c.to_dict()
-
         st.markdown(f"""
         <div class="card">
-            👤 <b>{d.get('nome')}</b><br>
+            👤 {d.get('nome')}<br>
             🔧 {d.get('servico')}
         </div>
         """, unsafe_allow_html=True)
@@ -166,27 +204,23 @@ elif menu == "Ordens":
 
     st.divider()
 
-    st.subheader("Ordens Registradas")
-
     ordens = db.collection("empresas").document(empresa_id)\
         .collection("ordens").stream()
 
     for o in ordens:
         d = o.to_dict()
 
-        status = d.get("status")
-
         cor = {
             "Novo": "🔵",
             "Em andamento": "🟠",
             "Finalizado": "🟢"
-        }.get(status, "⚪")
+        }.get(d.get("status"), "⚪")
 
         st.markdown(f"""
         <div class="card">
             👤 {d.get('cliente')}<br>
             🔧 {d.get('servico')}<br>
             💰 R$ {d.get('valor')}<br>
-            {cor} {status}
+            {cor} {d.get('status')}
         </div>
         """, unsafe_allow_html=True)
