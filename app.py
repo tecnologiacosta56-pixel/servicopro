@@ -7,9 +7,14 @@ from datetime import datetime
 # =========================
 st.set_page_config(page_title="ServicoPro SaaS", layout="wide")
 
-db = firestore.Client.from_service_account_info(
-    st.secrets["firebase"]
-)
+# FIREBASE
+try:
+    db = firestore.Client.from_service_account_info(
+        st.secrets["firebase"]
+    )
+except Exception as e:
+    st.error("Erro ao conectar Firebase. Verifique Secrets.")
+    st.stop()
 
 # =========================
 # SESSION
@@ -18,7 +23,7 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # =========================
-# LOGIN CORRIGIDO (FUNCIONA COM admin@pro.com / 1234)
+# LOGIN ROBUSTO
 # =========================
 def login(email, senha):
     try:
@@ -27,15 +32,16 @@ def login(email, senha):
         for u in users:
             data = u.to_dict()
 
-            if (
-                data.get("email", "").strip().lower() == email.strip().lower()
-                and data.get("password", "").strip() == senha.strip()
-            ):
+            db_email = str(data.get("email", "")).strip().lower()
+            db_pass = str(data.get("password", "")).strip()
+
+            if db_email == email.strip().lower() and db_pass == senha.strip():
                 return data
 
         return None
 
-    except Exception:
+    except Exception as e:
+        st.error("Erro ao acessar banco de dados")
         return None
 
 # =========================
@@ -48,7 +54,7 @@ if st.session_state.user is None:
     senha = st.text_input("Senha", type="password")
 
     if st.button("Entrar"):
-        with st.spinner("Validando acesso..."):
+        with st.spinner("Validando..."):
             user = login(email, senha)
 
         if user:
@@ -60,7 +66,7 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================
-# USUÁRIO LOGADO
+# USUÁRIO
 # =========================
 user = st.session_state.user
 
@@ -81,11 +87,15 @@ menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "Serviços"])
 if menu == "Dashboard":
     st.title("📊 Dashboard SaaS")
 
-    clientes = list(db.collection("clientes").stream())
-    servicos = list(db.collection("servicos").stream())
+    try:
+        clientes = list(db.collection("clientes").stream())
+        servicos = list(db.collection("servicos").stream())
 
-    st.metric("Clientes", len(clientes))
-    st.metric("Serviços", len(servicos))
+        st.metric("Clientes", len(clientes))
+        st.metric("Serviços", len(servicos))
+
+    except Exception as e:
+        st.error("Erro ao carregar dados do Firestore")
 
 # =========================
 # CLIENTES
@@ -110,15 +120,23 @@ elif menu == "Clientes":
 
     st.divider()
 
-    clientes = db.collection("clientes").stream()
+    try:
+        clientes = db.collection("clientes").stream()
 
-    for c in clientes:
-        d = c.to_dict()
+        encontrou = False
 
-        if d.get("user") != user["email"]:
-            continue
+        for c in clientes:
+            d = c.to_dict()
 
-        st.write(f"👤 {d['nome']} | {d['servico']}")
+            if d.get("user") == user["email"]:
+                encontrou = True
+                st.write(f"👤 {d.get('nome')} | {d.get('servico')}")
+
+        if not encontrou:
+            st.info("Nenhum cliente encontrado")
+
+    except Exception:
+        st.error("Erro ao carregar clientes")
 
 # =========================
 # SERVIÇOS
@@ -126,56 +144,63 @@ elif menu == "Clientes":
 elif menu == "Serviços":
     st.title("📋 Serviços")
 
-    clientes = db.collection("clientes").stream()
+    try:
+        clientes = db.collection("clientes").stream()
 
-    lista = {
-        c.id: c.to_dict()["nome"]
-        for c in clientes
-        if c.to_dict().get("user") == user["email"]
-    }
+        lista = {}
 
-    if not lista:
-        st.warning("Cadastre um cliente primeiro")
-        st.stop()
+        for c in clientes:
+            d = c.to_dict()
+            if d.get("user") == user["email"]:
+                lista[c.id] = d.get("nome")
 
-    cliente_id = st.selectbox(
-        "Cliente",
-        list(lista.keys()),
-        format_func=lambda x: lista[x]
-    )
+        if not lista:
+            st.warning("Nenhum cliente cadastrado ainda")
+            st.stop()
 
-    descricao = st.text_area("Descrição")
-    prioridade = st.selectbox("Prioridade", ["Baixa", "Média", "Alta", "Urgente"])
-
-    if st.button("Criar serviço"):
-        if descricao:
-            db.collection("servicos").add({
-                "cliente_id": cliente_id,
-                "cliente_nome": lista[cliente_id],
-                "descricao": descricao,
-                "prioridade": prioridade,
-                "user": user["email"],
-                "status": "Aberto",
-                "created_at": datetime.now()
-            })
-
-            st.success("Serviço criado!")
-            st.rerun()
-        else:
-            st.warning("Preencha a descrição")
-
-    st.divider()
-
-    servicos = db.collection("servicos").stream()
-
-    for s in servicos:
-        d = s.to_dict()
-
-        if d.get("user") != user["email"]:
-            continue
-
-        st.write(
-            f"👤 {d['cliente_nome']} | "
-            f"📝 {d['descricao']} | "
-            f"⚡ {d['prioridade']}"
+        cliente_id = st.selectbox(
+            "Cliente",
+            list(lista.keys()),
+            format_func=lambda x: lista[x]
         )
+
+        descricao = st.text_area("Descrição")
+        prioridade = st.selectbox("Prioridade", ["Baixa", "Média", "Alta", "Urgente"])
+
+        if st.button("Criar serviço"):
+            if descricao:
+                db.collection("servicos").add({
+                    "cliente_id": cliente_id,
+                    "cliente_nome": lista[cliente_id],
+                    "descricao": descricao,
+                    "prioridade": prioridade,
+                    "user": user["email"],
+                    "status": "Aberto",
+                    "created_at": datetime.now()
+                })
+
+                st.success("Serviço criado!")
+                st.rerun()
+
+        st.divider()
+
+        servicos = db.collection("servicos").stream()
+
+        encontrou = False
+
+        for s in servicos:
+            d = s.to_dict()
+
+            if d.get("user") == user["email"]:
+                encontrou = True
+                st.write(
+                    f"👤 {d.get('cliente_nome')} | "
+                    f"📝 {d.get('descricao')} | "
+                    f"⚡ {d.get('prioridade')}"
+                )
+
+        if not encontrou:
+            st.info("Nenhum serviço encontrado")
+
+    except Exception:
+        st.error("Erro ao carregar serviços")
