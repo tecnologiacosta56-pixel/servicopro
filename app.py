@@ -10,7 +10,36 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # 🎯 CONFIG
-st.set_page_config(page_title="ServiçoPro 2", layout="wide")
+st.markdown("""
+<style>
+.main {
+    background-color: #0E1117;
+}
+
+.stButton>button {
+    background-color: #00C853;
+    color: white;
+    border-radius: 8px;
+    height: 3em;
+    width: 100%;
+}
+
+.stTextInput>div>div>input {
+    border-radius: 8px;
+}
+
+.stSelectbox>div>div {
+    border-radius: 8px;
+}
+
+.card {
+    padding: 15px;
+    border-radius: 10px;
+    background-color: #1E1E1E;
+    margin-bottom: 10px;
+}
+</style>
+""", unsafe_allow_html=True)(page_title="ServiçoPro 2", layout="wide")
 
 st.title("🚀 ServiçoPro 2")
 
