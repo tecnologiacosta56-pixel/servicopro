@@ -7,7 +7,6 @@ from datetime import datetime
 # =========================
 st.set_page_config(page_title="ServicoPro SaaS", layout="wide")
 
-# conexão segura com Firebase via Secrets
 db = firestore.Client.from_service_account_info(
     st.secrets["firebase"]
 )
@@ -19,29 +18,24 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # =========================
-# LOGIN (BLINDADO - SEM TRAVAR)
+# LOGIN CORRIGIDO (FUNCIONA COM admin@pro.com / 1234)
 # =========================
 def login(email, senha):
     try:
-        if not email or not senha:
-            return None
+        users = db.collection("users").stream()
 
-        doc_ref = db.collection("users").document(email.strip())
+        for u in users:
+            data = u.to_dict()
 
-        doc = doc_ref.get()
-
-        if not doc.exists:
-            return None
-
-        data = doc.to_dict()
-
-        if data.get("password") == senha.strip():
-            return data
+            if (
+                data.get("email", "").strip().lower() == email.strip().lower()
+                and data.get("password", "").strip() == senha.strip()
+            ):
+                return data
 
         return None
 
-    except Exception as e:
-        st.error("Erro de conexão com banco")
+    except Exception:
         return None
 
 # =========================
