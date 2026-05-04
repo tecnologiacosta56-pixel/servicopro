@@ -9,25 +9,28 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ⚙ CONFIG + FAVICON
+# ⚙ CONFIG
 st.set_page_config(
-    page_title="ServiçoPro 2",
+    page_title="ServiçoPro",
     layout="wide",
     page_icon="logo.png"
 )
 
-# 🎨 ESTILO GLOBAL (IDENTIDADE VISUAL)
+# 🎨 ESTILO PREMIUM
 st.markdown("""
 <style>
 
+/* FUNDO */
 body {
     background-color: #0E1117;
 }
 
+/* TITULOS */
 h1, h2, h3 {
     color: #FFFFFF;
 }
 
+/* BOTÕES */
 .stButton>button {
     background: linear-gradient(90deg, #2196F3, #00C853);
     color: white;
@@ -36,6 +39,13 @@ h1, h2, h3 {
     font-weight: bold;
 }
 
+/* INPUTS */
+.stTextInput>div>div>input,
+.stNumberInput>div>div>input {
+    border-radius: 10px;
+}
+
+/* CARDS */
 .card {
     padding: 15px;
     border-radius: 12px;
@@ -45,40 +55,56 @@ h1, h2, h3 {
     margin-bottom: 10px;
 }
 
+/* LOGO ARREDONDADA */
+section[data-testid="stSidebar"] img {
+    border-radius: 50%;
+    display: block;
+    margin: 10px auto;
+}
+
+/* SIDEBAR */
+section[data-testid="stSidebar"] {
+    background-color: #111827;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-# 🧠 HEADER COM LOGO
-col1, col2 = st.columns([1, 4])
+# 🧠 SIDEBAR (LOGO + MENU)
+st.sidebar.image("logo.png", width=120)
+st.sidebar.markdown("## ⚡ ServiçoPro")
 
-with col1:
-    st.image("logo.png", width=90)
-
-with col2:
-    st.title("ServiçoPro 2")
-
-# 📌 MENU
 menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "Serviços", "OS"])
-
-st.sidebar.image("logo.png", width=150)
 
 # =========================
 # DASHBOARD
 # =========================
 if menu == "Dashboard":
-    st.subheader("📊 Visão Geral")
-    st.success("Sistema online e funcionando ✔️")
+    st.title("📊 Dashboard")
+
+    ordens = list(db.collection("ordens").stream())
+    clientes = list(db.collection("clientes").stream())
+
+    total_os = len(ordens)
+    total_clientes = len(clientes)
+    faturamento = sum([o.to_dict().get("valor", 0) for o in ordens])
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("📋 Ordens", total_os)
+    col2.metric("👤 Clientes", total_clientes)
+    col3.metric("💰 Faturamento", f"R$ {faturamento:.2f}")
 
 # =========================
 # CLIENTES
 # =========================
 elif menu == "Clientes":
-    st.subheader("👤 Clientes")
+    st.title("👤 Clientes")
 
     aba = st.radio("Opção", ["Cadastrar", "Listar"], horizontal=True)
 
     if aba == "Cadastrar":
-        nome = st.text_input("Nome do cliente")
+        nome = st.text_input("Nome")
         contato = st.text_input("Contato")
 
         if st.button("Salvar cliente"):
@@ -87,7 +113,7 @@ elif menu == "Clientes":
                     "nome": nome,
                     "contato": contato
                 })
-                st.success("Cliente salvo com sucesso!")
+                st.success("Cliente salvo")
             else:
                 st.warning("Digite o nome")
 
@@ -98,30 +124,30 @@ elif menu == "Clientes":
 
         for c in clientes:
             encontrou = True
-            dados = c.to_dict()
+            d = c.to_dict()
 
             st.markdown(f"""
             <div class="card">
-                <b>👤 Nome:</b> {dados.get('nome')}<br>
-                <b>📞 Contato:</b> {dados.get('contato')}
+                <b>👤 {d.get('nome')}</b><br>
+                📞 {d.get('contato')}
             </div>
             """, unsafe_allow_html=True)
 
         if not encontrou:
-            st.warning("Nenhum cliente cadastrado")
+            st.warning("Nenhum cliente")
 
 # =========================
 # SERVIÇOS
 # =========================
 elif menu == "Serviços":
-    st.subheader("🔧 Serviços")
+    st.title("🔧 Serviços")
     st.info("Em desenvolvimento...")
 
 # =========================
 # OS
 # =========================
 elif menu == "OS":
-    st.subheader("📋 Ordens de Serviço")
+    st.title("📋 Ordens de Serviço")
 
     aba = st.radio("Escolha", ["Cadastrar OS", "Listar OS"], horizontal=True)
 
@@ -140,7 +166,7 @@ elif menu == "OS":
                     "valor": valor,
                     "status": status
                 })
-                st.success("OS salva com sucesso")
+                st.success("OS salva")
             else:
                 st.warning("Preencha os campos")
 
@@ -150,11 +176,11 @@ elif menu == "OS":
 
         encontrou = False
 
-        for os in ordens:
+        for o in ordens:
             encontrou = True
-            dados = os.to_dict()
+            d = o.to_dict()
 
-            status = dados.get("status")
+            status = d.get("status")
 
             if status == "Novo":
                 cor = "#2196F3"
@@ -165,9 +191,9 @@ elif menu == "OS":
 
             st.markdown(f"""
             <div class="card">
-                <b>👤 Cliente:</b> {dados.get('cliente')}<br>
-                <b>🔧 Serviço:</b> {dados.get('servico')}<br>
-                <b>💰 Valor:</b> R$ {dados.get('valor')}<br>
+                <b>👤 Cliente:</b> {d.get('cliente')}<br>
+                <b>🔧 Serviço:</b> {d.get('servico')}<br>
+                <b>💰 Valor:</b> R$ {d.get('valor')}<br>
                 <b style="color:{cor}">📌 Status: {status}</b>
             </div>
             """, unsafe_allow_html=True)
