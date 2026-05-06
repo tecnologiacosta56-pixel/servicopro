@@ -3,4 +3,3 @@ firebase-admin
 plotly
 pandas
 mercadopago
-flask
