@@ -5,7 +5,7 @@ from firebase_admin import credentials, firestore
 import json
 
 # =========================
-# ⚙️ CONFIG PÁGINA
+# ⚙️ CONFIG DA PÁGINA
 # =========================
 st.set_page_config(
     page_title="ServiçoPro",
@@ -14,12 +14,12 @@ st.set_page_config(
 )
 
 # =========================
-# 🎨 ESTILO VISUAL PREMIUM
+# 🎨 ESTILO VISUAL
 # =========================
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(135deg, #020617, #0f172a, #020617);
+    background: linear-gradient(135deg, #020617, #0f172a);
     color: white;
 }
 
@@ -54,11 +54,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# 🔐 FIREBASE (SECRETS)
+# 🔐 FIREBASE (AUTOMÁTICO)
 # =========================
 if not firebase_admin._apps:
-    firebase_config = json.loads(st.secrets["firebase_config"])
-    cred = credentials.Certificate(firebase_config)
+    firebase_dict = json.loads(st.secrets["firebase_raw"])
+    cred = credentials.Certificate(firebase_dict)
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -112,12 +112,12 @@ if not user_data:
     user_data = {"plano": "free"}
 
 # =========================
-# 🚀 INTERFACE PRINCIPAL
+# 🚀 INTERFACE
 # =========================
 st.markdown('<div class="card">', unsafe_allow_html=True)
 
 st.markdown('<div class="big-title">Automatize seu negócio</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Sistema inteligente com automação e pagamentos integrados</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Sistema inteligente com clientes, ordens e pagamentos</div>', unsafe_allow_html=True)
 
 st.write("")
 st.write(f"Plano atual: **{user_data['plano']}**")
