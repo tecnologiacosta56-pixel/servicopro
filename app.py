@@ -1,15 +1,14 @@
 import streamlit as st
-import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 import mercadopago
 
 # ==============================
-# 🔐 FIREBASE (SECRETS)
+# 🔐 FIREBASE (SEGURO)
 # ==============================
 
 if not firebase_admin._apps:
-    firebase_dict = json.loads(st.secrets["firebase_raw"])
+    firebase_dict = dict(st.secrets["firebase"])
     cred = credentials.Certificate(firebase_dict)
     firebase_admin.initialize_app(cred)
 
@@ -22,7 +21,7 @@ db = firestore.client()
 sdk = mercadopago.SDK(st.secrets["MP_ACCESS_TOKEN"])
 
 # ==============================
-# 🎯 FUNÇÃO DE PAGAMENTO (CORRIGIDA)
+# 🎯 FUNÇÃO DE PAGAMENTO
 # ==============================
 
 def criar_pagamento(uid, email):
@@ -44,7 +43,6 @@ def criar_pagamento(uid, email):
     try:
         response = sdk.preference().create(preference_data)
 
-        # DEBUG (pode remover depois)
         print("RESPOSTA MP:", response)
 
         if "response" in response:
@@ -64,12 +62,29 @@ uid = "user_123"
 email = "cliente@email.com"
 
 # ==============================
-# 🎨 INTERFACE
+# 🎨 INTERFACE + ESTILO
 # ==============================
 
 st.set_page_config(page_title="ServiçoPro", layout="wide")
 
-st.title("🚀 Automatize seu negócio")
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0f172a, #020617);
+    color: white;
+}
+
+button {
+    background: linear-gradient(90deg, #06b6d4, #22c55e);
+    color: white !important;
+    border-radius: 10px;
+    border: none;
+    padding: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🚀 ServiçoPro SaaS")
 st.write("Sistema inteligente com clientes, ordens e pagamentos")
 
 # ==============================
