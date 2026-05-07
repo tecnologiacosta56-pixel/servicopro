@@ -104,7 +104,9 @@ div.stButton > button:hover {
 # LOGO
 # ==============================
 
-st.markdown("<div class='logo'>🚀 ServiçoPro SaaS</div>", unsafe_allow_html=True)
+from PIL import Image
+
+st.sidebar.image("logo.png", use_container_width=True)
 st.caption("Sistema inteligente de gestão, clientes e automação")
 
 # ==============================
