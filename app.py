@@ -2,6 +2,7 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 import pandas as pd
+import os
 
 # ==================================================
 # CONFIG
@@ -14,7 +15,7 @@ st.set_page_config(
 )
 
 # ==================================================
-# CSS (UI RESTAURADA)
+# CSS (UI SaaS)
 # ==================================================
 
 st.markdown("""
@@ -36,7 +37,7 @@ div.stButton > button:hover {
     color: white;
 }
 
-/* Sidebar escura SaaS */
+/* Sidebar estilo SaaS */
 section[data-testid="stSidebar"] {
     background-color: #0f172a;
     color: white;
@@ -69,7 +70,7 @@ except ValueError:
 db = firestore.client()
 
 # ==================================================
-# SESSION
+# SESSION STATE
 # ==================================================
 
 if "authenticated" not in st.session_state:
@@ -79,7 +80,7 @@ if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
 # ==================================================
-# LOGIN FIXO (user123 já validado)
+# LOGIN FIXO (user123)
 # ==================================================
 
 def login():
@@ -133,7 +134,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ==================================================
-# EMPRESA
+# EMPRESA CONTEXTO
 # ==================================================
 
 empresa_id = st.session_state.empresa_id
@@ -148,10 +149,13 @@ clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
 
 # ==================================================
-# SIDEBAR
+# SIDEBAR (LOGO SEGURA)
 # ==================================================
 
-st.sidebar.image("assets/logo.png", width=160)
+if os.path.exists("assets/logo.png"):
+    st.sidebar.image("assets/logo.png", width=160)
+else:
+    st.sidebar.markdown("## 🚀 ServiçoPro")
 
 st.sidebar.title("ServiçoPro")
 
@@ -170,7 +174,7 @@ menu = st.sidebar.selectbox(
 
 if menu == "Dashboard":
 
-    st.title("📊 Dashboard")
+    st.title("📊 Dashboard SaaS")
 
     clientes = clientes_ref.get()
     servicos = servicos_ref.get()
@@ -192,11 +196,15 @@ elif menu == "Clientes":
 
     if st.button("➕ Adicionar"):
 
-        clientes_ref.add({"nome": nome})
+        if nome:
 
-        st.success("Cliente adicionado")
+            clientes_ref.add({
+                "nome": nome
+            })
 
-        st.rerun()
+            st.success("Cliente adicionado")
+
+            st.rerun()
 
     st.divider()
 
@@ -230,14 +238,16 @@ elif menu == "Serviços":
 
     if st.button("➕ Salvar"):
 
-        servicos_ref.add({
-            "cliente": cliente,
-            "servico": servico
-        })
+        if cliente and servico:
 
-        st.success("Salvo")
+            servicos_ref.add({
+                "cliente": cliente,
+                "servico": servico
+            })
 
-        st.rerun()
+            st.success("Salvo")
+
+            st.rerun()
 
     st.divider()
 
