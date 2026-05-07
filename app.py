@@ -14,11 +14,42 @@ st.set_page_config(
 )
 
 # ==================================================
+# CSS (UI RESTAURADA)
+# ==================================================
+
+st.markdown("""
+<style>
+
+/* Botões com degradê */
+div.stButton > button {
+    background: linear-gradient(90deg, #4F46E5, #06B6D4);
+    color: white;
+    border-radius: 10px;
+    border: none;
+    padding: 0.5rem 1rem;
+    font-weight: bold;
+}
+
+/* Hover botão */
+div.stButton > button:hover {
+    background: linear-gradient(90deg, #06B6D4, #4F46E5);
+    color: white;
+}
+
+/* Sidebar escura SaaS */
+section[data-testid="stSidebar"] {
+    background-color: #0f172a;
+    color: white;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ==================================================
 # FIREBASE INIT
 # ==================================================
 
 try:
-
     firebase_admin.get_app()
 
 except ValueError:
@@ -35,14 +66,10 @@ except ValueError:
 
     firebase_admin.initialize_app(cred)
 
-# ==================================================
-# FIRESTORE
-# ==================================================
-
 db = firestore.client()
 
 # ==================================================
-# SESSION STATE
+# SESSION
 # ==================================================
 
 if "authenticated" not in st.session_state:
@@ -51,56 +78,27 @@ if "authenticated" not in st.session_state:
 if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
-if "uid" not in st.session_state:
-    st.session_state.uid = None
-
-if "role" not in st.session_state:
-    st.session_state.role = None
-
 # ==================================================
-# LOGIN
+# LOGIN FIXO (user123 já validado)
 # ==================================================
 
 def login():
 
-    try:
+    doc = db.collection(
+        "usuarios"
+    ).document(
+        "user123"
+    ).get()
 
-        doc_ref = db.collection(
-            "usuarios"
-        ).document(
-            "user123"
-        )
-
-        doc = doc_ref.get()
-
-        if not doc.exists:
-
-            return False
-
-        usuario = doc.to_dict()
-
-        st.session_state.authenticated = True
-
-        st.session_state.uid = doc.id
-
-        st.session_state.empresa_id = usuario.get(
-            "empresa_id"
-        )
-
-        st.session_state.role = usuario.get(
-            "role",
-            "member"
-        )
-
-        return True
-
-    except Exception as e:
-
-        st.error(
-            f"Erro login: {e}"
-        )
-
+    if not doc.exists:
         return False
+
+    user = doc.to_dict()
+
+    st.session_state.authenticated = True
+    st.session_state.empresa_id = user.get("empresa_id")
+
+    return True
 
 # ==================================================
 # LOGOUT
@@ -109,13 +107,7 @@ def login():
 def logout():
 
     st.session_state.authenticated = False
-
     st.session_state.empresa_id = None
-
-    st.session_state.uid = None
-
-    st.session_state.role = None
-
     st.rerun()
 
 # ==================================================
@@ -126,27 +118,17 @@ if not st.session_state.authenticated:
 
     st.title("🔐 ServiçoPro SaaS")
 
-    st.write(
-        "Clique abaixo para acessar."
-    )
-
     if st.button("Entrar"):
 
-        sucesso = login()
+        if login():
 
-        if sucesso:
-
-            st.success(
-                "Login realizado com sucesso!"
-            )
+            st.success("Login OK")
 
             st.rerun()
 
         else:
 
-            st.error(
-                "Usuário não encontrado."
-            )
+            st.error("Usuário não encontrado")
 
     st.stop()
 
@@ -156,182 +138,82 @@ if not st.session_state.authenticated:
 
 empresa_id = st.session_state.empresa_id
 
-if not empresa_id:
-
-    st.error(
-        "Empresa inválida."
-    )
-
-    st.stop()
-
-# ==================================================
-# REFERÊNCIAS FIRESTORE
-# ==================================================
-
 empresa_ref = db.collection(
     "empresas"
 ).document(
     empresa_id
 )
 
-clientes_ref = empresa_ref.collection(
-    "clientes"
-)
-
-servicos_ref = empresa_ref.collection(
-    "servicos"
-)
+clientes_ref = empresa_ref.collection("clientes")
+servicos_ref = empresa_ref.collection("servicos")
 
 # ==================================================
 # SIDEBAR
 # ==================================================
 
-st.sidebar.title("🚀 ServiçoPro")
+st.sidebar.image("assets/logo.png", width=160)
 
-st.sidebar.write(
-    f"Empresa: {empresa_id}"
-)
+st.sidebar.title("ServiçoPro")
 
-st.sidebar.write(
-    f"Perfil: {st.session_state.role}"
-)
+st.sidebar.write(f"Empresa: {empresa_id}")
 
-st.sidebar.button(
-    "🚪 Logout",
-    on_click=logout
-)
+st.sidebar.button("🚪 Logout", on_click=logout)
 
 menu = st.sidebar.selectbox(
-    "📌 Menu",
-    [
-        "📊 Dashboard",
-        "👤 Clientes",
-        "🛠 Serviços",
-        "💳 Plano"
-    ]
+    "Menu",
+    ["Dashboard", "Clientes", "Serviços"]
 )
 
 # ==================================================
 # DASHBOARD
 # ==================================================
 
-if menu == "📊 Dashboard":
+if menu == "Dashboard":
 
-    st.title("📊 Dashboard SaaS")
+    st.title("📊 Dashboard")
 
     clientes = clientes_ref.get()
-
     servicos = servicos_ref.get()
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
-    col1.metric(
-        "Empresa",
-        empresa_id
-    )
-
-    col2.metric(
-        "Clientes",
-        len(clientes)
-    )
-
-    col3.metric(
-        "Serviços",
-        len(servicos)
-    )
-
-    chart_data = pd.DataFrame({
-
-        "Categoria": [
-            "Clientes",
-            "Serviços"
-        ],
-
-        "Total": [
-            len(clientes),
-            len(servicos)
-        ]
-
-    })
-
-    st.bar_chart(
-        chart_data.set_index(
-            "Categoria"
-        )
-    )
+    col1.metric("Clientes", len(clientes))
+    col2.metric("Serviços", len(servicos))
 
 # ==================================================
 # CLIENTES
 # ==================================================
 
-elif menu == "👤 Clientes":
+elif menu == "Clientes":
 
     st.title("👤 Clientes")
 
-    nome = st.text_input(
-        "Nome do cliente"
-    )
+    nome = st.text_input("Nome")
 
-    telefone = st.text_input(
-        "Telefone"
-    )
+    if st.button("➕ Adicionar"):
 
-    endereco = st.text_input(
-        "Endereço"
-    )
+        clientes_ref.add({"nome": nome})
 
-    if st.button(
-        "➕ Adicionar Cliente"
-    ):
+        st.success("Cliente adicionado")
 
-        if nome:
-
-            clientes_ref.add({
-
-                "nome": nome,
-                "telefone": telefone,
-                "endereco": endereco
-
-            })
-
-            st.success(
-                "Cliente adicionado!"
-            )
-
-            st.rerun()
+        st.rerun()
 
     st.divider()
 
-    clientes = clientes_ref.get()
-
-    for c in clientes:
+    for c in clientes_ref.get():
 
         data = c.to_dict()
 
         col1, col2 = st.columns([8, 2])
 
         with col1:
-
-            st.write(
-                f"""
-👤 {data.get('nome', '')}
-
-📞 {data.get('telefone', '')}
-
-📍 {data.get('endereco', '')}
-"""
-            )
+            st.write(f"👤 {data.get('nome')}")
 
         with col2:
 
-            if st.button(
-                "🗑 Excluir",
-                key=c.id
-            ):
+            if st.button("🗑", key=c.id):
 
-                clientes_ref.document(
-                    c.id
-                ).delete()
+                clientes_ref.document(c.id).delete()
 
                 st.rerun()
 
@@ -339,110 +221,39 @@ elif menu == "👤 Clientes":
 # SERVIÇOS
 # ==================================================
 
-elif menu == "🛠 Serviços":
+elif menu == "Serviços":
 
     st.title("🛠 Serviços")
 
-    cliente = st.text_input(
-        "Cliente"
-    )
+    cliente = st.text_input("Cliente")
+    servico = st.text_input("Serviço")
 
-    servico = st.text_input(
-        "Serviço"
-    )
+    if st.button("➕ Salvar"):
 
-    valor = st.text_input(
-        "Valor"
-    )
+        servicos_ref.add({
+            "cliente": cliente,
+            "servico": servico
+        })
 
-    status = st.selectbox(
-        "Status",
-        [
-            "pendente",
-            "em andamento",
-            "concluido"
-        ]
-    )
+        st.success("Salvo")
 
-    if st.button(
-        "➕ Salvar Serviço"
-    ):
-
-        if cliente and servico:
-
-            servicos_ref.add({
-
-                "cliente": cliente,
-                "servico": servico,
-                "valor": valor,
-                "status": status
-
-            })
-
-            st.success(
-                "Serviço salvo!"
-            )
-
-            st.rerun()
+        st.rerun()
 
     st.divider()
 
-    servicos = servicos_ref.get()
-
-    for s in servicos:
+    for s in servicos_ref.get():
 
         data = s.to_dict()
 
         col1, col2 = st.columns([8, 2])
 
         with col1:
-
-            st.write(
-                f"""
-🛠 {data.get('cliente', '')}
-
-🔧 {data.get('servico', '')}
-
-💰 R$ {data.get('valor', '')}
-
-📌 {data.get('status', '')}
-"""
-            )
+            st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
 
         with col2:
 
-            if st.button(
-                "🗑 Excluir",
-                key=s.id
-            ):
+            if st.button("🗑", key=s.id):
 
-                servicos_ref.document(
-                    s.id
-                ).delete()
+                servicos_ref.document(s.id).delete()
 
                 st.rerun()
-
-# ==================================================
-# PLANO
-# ==================================================
-
-elif menu == "💳 Plano":
-
-    st.title("💳 Plano SaaS")
-
-    st.success(
-        "Sistema estabilizado 🚀"
-    )
-
-    st.info(
-        """
-Próximas fases:
-
-✅ Firebase Auth real
-✅ Mercado Pago recorrente
-✅ Multiusuários
-✅ Painel Admin
-✅ Multiempresa SaaS
-✅ Automação inteligente
-"""
-    )
