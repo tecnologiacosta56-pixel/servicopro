@@ -207,6 +207,52 @@ elif menu == "👤 Clientes":
         with col1:
             st.markdown(f"👤 **{data['nome']}**")
 
+        # =========================
+        # EDITAR
+        # =========================
+        with col2:
+            if st.button("✏️", key=f"edit_{c.id}"):
+
+                novo_nome = st.text_input(
+                    "Editar nome",
+                    value=data["nome"],
+                    key=f"input_{c.id}"
+                )
+
+                if st.button("💾 Salvar", key=f"save_{c.id}"):
+                    db.collection("clientes").document(c.id).update({
+                        "nome": novo_nome
+                    })
+                    st.success("Atualizado!")
+                    st.rerun()
+
+        # =========================
+        # EXCLUIR (COM CONFIRMAÇÃO)
+        # =========================
+        with col3:
+            if st.button("🗑", key=f"del_{c.id}"):
+                st.session_state[f"confirm_del_{c.id}"] = True
+
+        # CONFIRMAÇÃO VISUAL
+        if st.session_state.get(f"confirm_del_{c.id}"):
+
+            st.warning(f"Tem certeza que deseja excluir **{data['nome']}**?")
+
+            colA, colB = st.columns(2)
+
+            with colA:
+                if st.button("❌ Cancelar", key=f"cancel_{c.id}"):
+                    st.session_state[f"confirm_del_{c.id}"] = False
+                    st.rerun()
+
+            with colB:
+                if st.button("✅ Confirmar", key=f"confirm_{c.id}"):
+
+                    db.collection("clientes").document(c.id).delete()
+
+                    st.session_state[f"confirm_del_{c.id}"] = False
+                    st.success("Cliente excluído!")
+                    st.rerun()
         # ================= EDITAR =================
         with col2:
             if st.button("✏️", key=f"edit_{c.id}"):
