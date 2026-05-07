@@ -18,8 +18,8 @@ db = firestore.client()
 # 💳 MERCADO PAGO
 # ==============================
 
-sdk = mercadopago.SDK(st.secrets["MP_ACCESS_TOKEN"])
-
+st.write(st.secrets)
+st.write("TOKEN:", st.secrets.get("MP_ACCESS_TOKEN"))
 # ==============================
 # 🎯 FUNÇÃO DE PAGAMENTO
 # ==============================
