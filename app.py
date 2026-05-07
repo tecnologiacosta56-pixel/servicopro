@@ -208,23 +208,36 @@ elif menu == "👤 Clientes":
             st.markdown(f"👤 **{data['nome']}**")
 
         # =========================
-        # EDITAR
+        # EDITAR (SEM DUPLICAÇÃO)
         # =========================
-        with col2:
-            if st.button("✏️", key=f"edit_{c.id}"):
+        if st.session_state.get(f"edit_mode_{c.id}"):
 
-                novo_nome = st.text_input(
-                    "Editar nome",
-                    value=data["nome"],
-                    key=f"input_{c.id}"
-                )
+            novo_nome = st.text_input(
+                "Editar nome",
+                value=data["nome"],
+                key=f"input_{c.id}"
+            )
 
+            colA, colB = st.columns(2)
+
+            with colA:
                 if st.button("💾 Salvar", key=f"save_{c.id}"):
                     db.collection("clientes").document(c.id).update({
                         "nome": novo_nome
                     })
+                    st.session_state[f"edit_mode_{c.id}"] = False
                     st.success("Atualizado!")
                     st.rerun()
+
+            with colB:
+                if st.button("❌ Cancelar", key=f"cancel_edit_{c.id}"):
+                    st.session_state[f"edit_mode_{c.id}"] = False
+                    st.rerun()
+
+        else:
+            if st.button("✏️ Editar", key=f"edit_btn_{c.id}"):
+                st.session_state[f"edit_mode_{c.id}"] = True
+                st.rerun()
 
         # =========================
         # EXCLUIR (COM CONFIRMAÇÃO)
@@ -233,6 +246,23 @@ elif menu == "👤 Clientes":
             if st.button("🗑", key=f"del_{c.id}"):
                 st.session_state[f"confirm_del_{c.id}"] = True
 
+        if st.session_state.get(f"confirm_del_{c.id}"):
+
+            st.warning(f"Excluir **{data['nome']}**?")
+
+            colA, colB = st.columns(2)
+
+            with colA:
+                if st.button("❌ Cancelar", key=f"cancel_{c.id}"):
+                    st.session_state[f"confirm_del_{c.id}"] = False
+                    st.rerun()
+
+            with colB:
+                if st.button("✅ Confirmar", key=f"confirm_{c.id}"):
+                    db.collection("clientes").document(c.id).delete()
+                    st.session_state[f"confirm_del_{c.id}"] = False
+                    st.success("Cliente excluído!")
+                    st.rerun()
         # CONFIRMAÇÃO VISUAL
         if st.session_state.get(f"confirm_del_{c.id}"):
 
