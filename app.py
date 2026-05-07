@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import mercadopago
 import pandas as pd
+from PIL import Image
 
 # ==============================
 # CONFIG
@@ -47,7 +48,7 @@ if not user_ref.get().exists:
 plano = user_ref.get().to_dict()["plano"]
 
 # ==============================
-# ESTILO VISUAL PREMIUM (EVOLUÍDO)
+# ESTILO VISUAL
 # ==============================
 
 st.markdown("""
@@ -58,14 +59,6 @@ st.markdown("""
     color: white;
 }
 
-/* LOGO */
-.logo {
-    font-size: 30px;
-    font-weight: 800;
-    color: #22c55e;
-    margin-bottom: 5px;
-}
-
 /* CARDS */
 .card {
     background: rgba(255,255,255,0.06);
@@ -73,12 +66,6 @@ st.markdown("""
     border-radius: 14px;
     border: 1px solid rgba(255,255,255,0.1);
     margin-bottom: 10px;
-    transition: 0.3s;
-}
-
-.card:hover {
-    transform: scale(1.01);
-    border: 1px solid #22c55e;
 }
 
 /* BOTÕES */
@@ -89,12 +76,10 @@ div.stButton > button {
     border: none;
     padding: 10px 16px;
     font-weight: 600;
-    transition: 0.3s;
 }
 
 div.stButton > button:hover {
     transform: scale(1.05);
-    box-shadow: 0px 0px 15px #22c55e;
 }
 
 </style>
@@ -104,10 +89,8 @@ div.stButton > button:hover {
 # LOGO
 # ==============================
 
-from PIL import Image
-
 st.sidebar.image("logo.png", use_container_width=True)
-st.caption("Sistema inteligente de gestão, clientes e automação")
+st.caption("Sistema inteligente de gestão e automação")
 
 # ==============================
 # MENU
@@ -143,7 +126,7 @@ def criar_pagamento(uid, email):
         return None
 
 # ==============================
-# DASHBOARD (EVOLUÍDO)
+# DASHBOARD
 # ==============================
 
 if menu == "📊 Dashboard":
@@ -154,35 +137,21 @@ if menu == "📊 Dashboard":
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Plano Atual", plano.upper())
+    col1.metric("Plano", plano.upper())
     col2.metric("Clientes", len(clientes))
     col3.metric("Serviços", len(servicos))
 
-    st.markdown("---")
-
-    st.subheader("📈 Visão Geral do Sistema")
-
-    df = pd.DataFrame({
+    st.bar_chart(pd.DataFrame({
         "Categoria": ["Clientes", "Serviços"],
         "Total": [len(clientes), len(servicos)]
-    })
-
-    st.bar_chart(df.set_index("Categoria"))
-
-    st.markdown("---")
-
-    st.subheader("⚡ Status do Sistema")
+    }).set_index("Categoria"))
 
     st.success("Firebase conectado")
     st.success("Mercado Pago ativo")
     st.info("SaaS operacional")
 
 # ==============================
-# CLIENTES
-# ==============================
-
-# ==============================
-# CLIENTES (CRUD PROFISSIONAL)
+# CLIENTES (VERSÃO LIMPA FINAL)
 # ==============================
 
 elif menu == "👤 Clientes":
@@ -194,8 +163,6 @@ elif menu == "👤 Clientes":
         if nome:
             db.collection("clientes").add({"nome": nome})
             st.success("Cliente adicionado!")
-        else:
-            st.warning("Digite um nome.")
 
     st.markdown("### Lista de Clientes")
 
@@ -207,10 +174,8 @@ elif menu == "👤 Clientes":
         with col1:
             st.markdown(f"👤 **{data['nome']}**")
 
-        # =========================
-        # EDITAR (SEM DUPLICAÇÃO)
-        # =========================
-        if st.session_state.get(f"edit_mode_{c.id}"):
+        # EDITAR
+        if st.session_state.get(f"edit_{c.id}"):
 
             novo_nome = st.text_input(
                 "Editar nome",
@@ -225,81 +190,41 @@ elif menu == "👤 Clientes":
                     db.collection("clientes").document(c.id).update({
                         "nome": novo_nome
                     })
-                    st.session_state[f"edit_mode_{c.id}"] = False
+                    st.session_state[f"edit_{c.id}"] = False
                     st.success("Atualizado!")
                     st.rerun()
 
             with colB:
-                if st.button("❌ Cancelar", key=f"cancel_edit_{c.id}"):
-                    st.session_state[f"edit_mode_{c.id}"] = False
+                if st.button("❌ Cancelar", key=f"cancel_{c.id}"):
+                    st.session_state[f"edit_{c.id}"] = False
                     st.rerun()
 
         else:
             if st.button("✏️ Editar", key=f"edit_btn_{c.id}"):
-                st.session_state[f"edit_mode_{c.id}"] = True
+                st.session_state[f"edit_{c.id}"] = True
                 st.rerun()
 
-        # =========================
-        # EXCLUIR (COM CONFIRMAÇÃO)
-        # =========================
-        with col3:
-            if st.button("🗑", key=f"del_{c.id}"):
-                st.session_state[f"confirm_del_{c.id}"] = True
+        # EXCLUIR COM CONFIRMAÇÃO
+        if st.button("🗑 Excluir", key=f"del_{c.id}"):
+            st.session_state[f"confirm_{c.id}"] = True
 
-        if st.session_state.get(f"confirm_del_{c.id}"):
+        if st.session_state.get(f"confirm_{c.id}"):
 
             st.warning(f"Excluir **{data['nome']}**?")
 
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("❌ Cancelar", key=f"cancel_{c.id}"):
-                    st.session_state[f"confirm_del_{c.id}"] = False
+                if st.button("❌ Cancelar", key=f"cancel_del_{c.id}"):
+                    st.session_state[f"confirm_{c.id}"] = False
                     st.rerun()
 
             with colB:
-                if st.button("✅ Confirmar", key=f"confirm_{c.id}"):
+                if st.button("✅ Confirmar", key=f"confirm_del_{c.id}"):
                     db.collection("clientes").document(c.id).delete()
-                    st.session_state[f"confirm_del_{c.id}"] = False
+                    st.session_state[f"confirm_{c.id}"] = False
                     st.success("Cliente excluído!")
                     st.rerun()
-        # CONFIRMAÇÃO VISUAL
-        if st.session_state.get(f"confirm_del_{c.id}"):
-
-            st.warning(f"Tem certeza que deseja excluir **{data['nome']}**?")
-
-            colA, colB = st.columns(2)
-
-            with colA:
-                if st.button("❌ Cancelar", key=f"cancel_{c.id}"):
-                    st.session_state[f"confirm_del_{c.id}"] = False
-                    st.rerun()
-
-            with colB:
-                if st.button("✅ Confirmar", key=f"confirm_{c.id}"):
-
-                    db.collection("clientes").document(c.id).delete()
-
-                    st.session_state[f"confirm_del_{c.id}"] = False
-                    st.success("Cliente excluído!")
-                    st.rerun()
-        # ================= EDITAR =================
-        with col2:
-            if st.button("✏️", key=f"edit_{c.id}"):
-                novo_nome = st.text_input("Editar nome", value=data["nome"], key=f"input_{c.id}")
-
-                if st.button("Salvar", key=f"save_{c.id}"):
-                    db.collection("clientes").document(c.id).update({
-                        "nome": novo_nome
-                    })
-                    st.success("Atualizado!")
-                    st.rerun()
-
-        # ================= EXCLUIR =================
-        with col3:
-            if st.button("🗑", key=f"del_{c.id}"):
-                db.collection("clientes").document(c.id).delete()
-                st.rerun()
 
 # ==============================
 # SERVIÇOS
@@ -328,27 +253,12 @@ elif menu == "🛠 Serviços":
         with col1:
             st.markdown(f"🛠 **{data['cliente']} - {data['servico']}**")
 
-        with col2:
-            if st.button("✏️", key=f"edit_s_{s.id}"):
-                novo_servico = st.text_input(
-                    "Editar serviço",
-                    value=data["servico"],
-                    key=f"input_s_{s.id}"
-                )
+        if st.button("🗑 Excluir", key=f"del_s_{s.id}"):
+            db.collection("servicos").document(s.id).delete()
+            st.rerun()
 
-                if st.button("Salvar S", key=f"save_s_{s.id}"):
-                    db.collection("servicos").document(s.id).update({
-                        "servico": novo_servico
-                    })
-                    st.success("Atualizado!")
-                    st.rerun()
-
-        with col3:
-            if st.button("🗑", key=f"del_s_{s.id}"):
-                db.collection("servicos").document(s.id).delete()
-                st.rerun()
 # ==============================
-# PLANO (UPGRADE SAAS)
+# PLANO
 # ==============================
 
 elif menu == "💳 Plano":
@@ -361,25 +271,7 @@ elif menu == "💳 Plano":
             link = criar_pagamento(uid, email)
 
             if link:
-                st.success("Pagamento gerado com sucesso!")
-
-                st.markdown(f"""
-                <a href="{link}" target="_blank">
-                    <button style="
-                        background: linear-gradient(90deg, #06b6d4, #22c55e);
-                        color: white;
-                        padding: 12px;
-                        border: none;
-                        border-radius: 10px;
-                        font-weight: bold;
-                        cursor: pointer;
-                        width: 100%;
-                    ">
-                    💳 Ir para Pagamento
-                    </button>
-                </a>
-                """, unsafe_allow_html=True)
-
+                st.markdown(f"[Ir para pagamento]({link})")
             else:
                 st.error("Erro ao gerar pagamento.")
     else:
