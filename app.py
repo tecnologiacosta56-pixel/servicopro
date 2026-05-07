@@ -25,68 +25,90 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ==============================
-# MERCADO PAGO
-# ==============================
-
 sdk = mercadopago.SDK(
     st.secrets["mercadopago"]["MP_ACCESS_TOKEN"]
 )
 
 # ==============================
-# EMPRESA ATIVA (FIXA AGORA)
+# 🔐 SESSION DEFAULT
 # ==============================
 
-empresa_id = "empresa_demo_001"
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if "uid" not in st.session_state:
+    st.session_state["uid"] = None
+
+if "empresa_id" not in st.session_state:
+    st.session_state["empresa_id"] = None
+
+if "role" not in st.session_state:
+    st.session_state["role"] = None
+
+# ==============================
+# 🔐 LOGIN FUNCTION (SIMULADO FIREBASE AUTH)
+# ==============================
+
+def login(email, password):
+    users = db.collection("usuarios").where("email", "==", email).stream()
+
+    for u in users:
+        data = u.to_dict()
+
+        # aqui futuramente valida auth real Firebase Auth
+        st.session_state["uid"] = u.id
+        st.session_state["empresa_id"] = data["empresa_id"]
+        st.session_state["role"] = data.get("role", "member")
+        st.session_state["authenticated"] = True
+        return True
+
+    return False
+
+# ==============================
+# 🚪 LOGOUT
+# ==============================
+
+def logout():
+    st.session_state.clear()
+    st.rerun()
+
+# ==============================
+# 🔐 LOGIN SCREEN
+# ==============================
+
+if not st.session_state["authenticated"]:
+
+    st.title("🔐 Login ServiçoPro")
+
+    email = st.text_input("Email")
+    password = st.text_input("Senha", type="password")
+
+    if st.button("Entrar"):
+        if login(email, password):
+            st.success("Login realizado!")
+            st.rerun()
+        else:
+            st.error("Credenciais inválidas")
+
+    st.stop()
+
+# ==============================
+# 🏢 CONTEXTO EMPRESA
+# ==============================
+
+empresa_id = st.session_state["empresa_id"]
 
 empresa_ref = db.collection("empresas").document(empresa_id)
 
 clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
-usuarios_ref = empresa_ref.collection("usuarios")
 plano_ref = empresa_ref.collection("plano")
 
 # ==============================
-# USUÁRIO (SIMPLIFICADO POR ENQUANTO)
+# LOGOUT BUTTON
 # ==============================
 
-uid = "user_123"
-email = "cliente@email.com"
-
-user_ref = usuarios_ref.document(uid)
-if not user_ref.get().exists:
-    user_ref.set({"plano": "free", "email": email})
-
-plano = user_ref.get().to_dict().get("plano", "free")
-
-# ==============================
-# ESTILO
-# ==============================
-
-st.markdown("""
-<style>
-
-.stApp {
-    background: radial-gradient(circle at top, #0f172a, #020617);
-    color: white;
-}
-
-/* BOTÕES */
-div.stButton > button {
-    background: linear-gradient(90deg, #06b6d4, #22c55e);
-    color: white;
-    border-radius: 10px;
-    border: none;
-    padding: 10px 16px;
-    font-weight: 600;
-}
-
-div.stButton > button:hover {
-    transform: scale(1.05);
-}
-
-</style>
-""", unsafe_allow_html=True)
+st.sidebar.button("🚪 Logout", on_click=logout)
 
 # ==============================
 # MENU
@@ -100,40 +122,18 @@ menu = st.sidebar.selectbox("📌 Menu", [
 ])
 
 # ==============================
-# PAGAMENTO
-# ==============================
-
-def criar_pagamento(uid, email):
-    preference_data = {
-        "items": [{
-            "title": "Plano Pro ServiçoPro",
-            "quantity": 1,
-            "currency_id": "BRL",
-            "unit_price": 49.90
-        }],
-        "payer": {"email": email},
-        "external_reference": uid
-    }
-
-    try:
-        response = sdk.preference().create(preference_data)
-        return response["response"]["init_point"]
-    except:
-        return None
-
-# ==============================
 # DASHBOARD
 # ==============================
 
 if menu == "📊 Dashboard":
-    st.title("📊 Painel Inteligente")
+    st.title("📊 Dashboard SaaS")
 
     clientes = list(clientes_ref.stream())
     servicos = list(servicos_ref.stream())
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Plano", plano.upper())
+    col1.metric("Empresa", empresa_id)
     col2.metric("Clientes", len(clientes))
     col3.metric("Serviços", len(servicos))
 
@@ -142,23 +142,19 @@ if menu == "📊 Dashboard":
         "Total": [len(clientes), len(servicos)]
     }).set_index("Categoria"))
 
-    st.success("Sistema SaaS ativo")
-
 # ==============================
 # CLIENTES
 # ==============================
 
 elif menu == "👤 Clientes":
-    st.title("👤 Gestão de Clientes")
+    st.title("👤 Clientes")
 
     nome = st.text_input("Novo cliente")
 
-    if st.button("➕ Adicionar Cliente"):
+    if st.button("➕ Adicionar"):
         if nome:
             clientes_ref.add({"nome": nome})
-            st.success("Cliente adicionado!")
-
-    st.markdown("### Lista de Clientes")
+            st.success("Adicionado!")
 
     for c in clientes_ref.stream():
         data = c.to_dict()
@@ -166,35 +162,31 @@ elif menu == "👤 Clientes":
         col1, col2 = st.columns([8, 2])
 
         with col1:
-            st.markdown(f"👤 **{data['nome']}**")
+            st.markdown(f"👤 {data['nome']}")
 
-        if st.session_state.get(f"edit_c_{c.id}"):
+        if st.session_state.get(f"edit_{c.id}"):
 
-            novo_nome = st.text_input(
-                "Editar nome",
-                value=data["nome"],
-                key=f"input_c_{c.id}"
-            )
+            novo = st.text_input("Editar", value=data["nome"], key=f"inp_{c.id}")
 
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("💾 Salvar", key=f"save_c_{c.id}"):
-                    clientes_ref.document(c.id).update({"nome": novo_nome})
-                    st.session_state[f"edit_c_{c.id}"] = False
+                if st.button("Salvar", key=f"s_{c.id}"):
+                    clientes_ref.document(c.id).update({"nome": novo})
+                    st.session_state[f"edit_{c.id}"] = False
                     st.rerun()
 
             with colB:
-                if st.button("❌ Cancelar", key=f"cancel_c_{c.id}"):
-                    st.session_state[f"edit_c_{c.id}"] = False
+                if st.button("Cancelar", key=f"c_{c.id}"):
+                    st.session_state[f"edit_{c.id}"] = False
                     st.rerun()
 
         else:
-            if st.button("✏️ Editar", key=f"edit_btn_c_{c.id}"):
-                st.session_state[f"edit_c_{c.id}"] = True
+            if st.button("✏️", key=f"e_{c.id}"):
+                st.session_state[f"edit_{c.id}"] = True
                 st.rerun()
 
-        if st.button("🗑 Excluir", key=f"del_c_{c.id}"):
+        if st.button("🗑", key=f"d_{c.id}"):
             clientes_ref.document(c.id).delete()
             st.rerun()
 
@@ -203,20 +195,18 @@ elif menu == "👤 Clientes":
 # ==============================
 
 elif menu == "🛠 Serviços":
-    st.title("🛠 Gestão de Serviços")
+    st.title("🛠 Serviços")
 
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
 
-    if st.button("➕ Salvar Serviço"):
+    if st.button("➕ Salvar"):
         if cliente and servico:
             servicos_ref.add({
                 "cliente": cliente,
                 "servico": servico
             })
-            st.success("Serviço salvo!")
-
-    st.markdown("### Lista de Serviços")
+            st.success("Salvo!")
 
     for s in servicos_ref.stream():
         data = s.to_dict()
@@ -224,9 +214,9 @@ elif menu == "🛠 Serviços":
         col1, col2 = st.columns([8, 2])
 
         with col1:
-            st.markdown(f"🛠 **{data['cliente']} - {data['servico']}**")
+            st.markdown(f"🛠 {data['cliente']} - {data['servico']}")
 
-        if st.button("🗑 Excluir", key=f"del_s_{s.id}"):
+        if st.button("🗑", key=f"ds_{s.id}"):
             servicos_ref.document(s.id).delete()
             st.rerun()
 
@@ -235,17 +225,6 @@ elif menu == "🛠 Serviços":
 # ==============================
 
 elif menu == "💳 Plano":
-    st.title("💳 Planos")
+    st.title("💳 Plano")
 
-    st.write(f"Plano atual: **{plano.upper()}**")
-
-    if plano == "free":
-        if st.button("🚀 Fazer Upgrade PRO"):
-            link = criar_pagamento(uid, email)
-
-            if link:
-                st.markdown(f"[Ir para pagamento]({link})")
-            else:
-                st.error("Erro ao gerar pagamento.")
-    else:
-        st.success("Você já é PRO 🎉")
+    st.info("Sistema pronto para upgrade SaaS real")
