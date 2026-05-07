@@ -35,7 +35,7 @@ sdk = mercadopago.SDK(
 )
 
 # ==============================
-# USUÁRIO
+# USUÁRIO (BASE)
 # ==============================
 
 uid = "user_123"
@@ -151,7 +151,7 @@ if menu == "📊 Dashboard":
     st.info("SaaS operacional")
 
 # ==============================
-# CLIENTES (VERSÃO LIMPA FINAL)
+# CLIENTES (PADRÃO FINAL)
 # ==============================
 
 elif menu == "👤 Clientes":
@@ -169,7 +169,7 @@ elif menu == "👤 Clientes":
     for c in db.collection("clientes").stream():
         data = c.to_dict()
 
-        col1, col2, col3 = st.columns([7, 1, 1])
+        col1, col2 = st.columns([8, 2])
 
         with col1:
             st.markdown(f"👤 **{data['nome']}**")
@@ -227,7 +227,7 @@ elif menu == "👤 Clientes":
                     st.rerun()
 
 # ==============================
-# SERVIÇOS
+# SERVIÇOS (PADRÃO FINAL)
 # ==============================
 
 elif menu == "🛠 Serviços":
@@ -237,25 +237,43 @@ elif menu == "🛠 Serviços":
     servico = st.text_input("Serviço")
 
     if st.button("➕ Salvar Serviço"):
-        db.collection("servicos").add({
-            "cliente": cliente,
-            "servico": servico
-        })
-        st.success("Serviço salvo!")
+        if cliente and servico:
+            db.collection("servicos").add({
+                "cliente": cliente,
+                "servico": servico
+            })
+            st.success("Serviço salvo!")
 
     st.markdown("### Lista de Serviços")
 
     for s in db.collection("servicos").stream():
         data = s.to_dict()
 
-        col1, col2, col3 = st.columns([7, 1, 1])
+        col1, col2 = st.columns([8, 2])
 
         with col1:
             st.markdown(f"🛠 **{data['cliente']} - {data['servico']}**")
 
         if st.button("🗑 Excluir", key=f"del_s_{s.id}"):
-            db.collection("servicos").document(s.id).delete()
-            st.rerun()
+            st.session_state[f"confirm_s_{s.id}"] = True
+
+        if st.session_state.get(f"confirm_s_{s.id}"):
+
+            st.warning(f"Excluir serviço de **{data['cliente']}**?")
+
+            colA, colB = st.columns(2)
+
+            with colA:
+                if st.button("❌ Cancelar", key=f"cancel_s_{s.id}"):
+                    st.session_state[f"confirm_s_{s.id}"] = False
+                    st.rerun()
+
+            with colB:
+                if st.button("✅ Confirmar", key=f"confirm_s_{s.id}"):
+                    db.collection("servicos").document(s.id).delete()
+                    st.session_state[f"confirm_s_{s.id}"] = False
+                    st.success("Serviço excluído!")
+                    st.rerun()
 
 # ==============================
 # PLANO
