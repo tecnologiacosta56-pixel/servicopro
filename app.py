@@ -3,7 +3,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import mercadopago
 import pandas as pd
-from PIL import Image
 
 # ==============================
 # CONFIG
@@ -35,17 +34,30 @@ sdk = mercadopago.SDK(
 )
 
 # ==============================
-# USUÁRIO BASE
+# EMPRESA ATIVA (FIXA AGORA)
+# ==============================
+
+empresa_id = "empresa_demo_001"
+
+empresa_ref = db.collection("empresas").document(empresa_id)
+
+clientes_ref = empresa_ref.collection("clientes")
+servicos_ref = empresa_ref.collection("servicos")
+usuarios_ref = empresa_ref.collection("usuarios")
+plano_ref = empresa_ref.collection("plano")
+
+# ==============================
+# USUÁRIO (SIMPLIFICADO POR ENQUANTO)
 # ==============================
 
 uid = "user_123"
 email = "cliente@email.com"
 
-user_ref = db.collection("usuarios").document(uid)
+user_ref = usuarios_ref.document(uid)
 if not user_ref.get().exists:
     user_ref.set({"plano": "free", "email": email})
 
-plano = user_ref.get().to_dict()["plano"]
+plano = user_ref.get().to_dict().get("plano", "free")
 
 # ==============================
 # ESTILO
@@ -57,15 +69,6 @@ st.markdown("""
 .stApp {
     background: radial-gradient(circle at top, #0f172a, #020617);
     color: white;
-}
-
-/* CARDS */
-.card {
-    background: rgba(255,255,255,0.06);
-    padding: 15px;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 10px;
 }
 
 /* BOTÕES */
@@ -84,13 +87,6 @@ div.stButton > button:hover {
 
 </style>
 """, unsafe_allow_html=True)
-
-# ==============================
-# LOGO
-# ==============================
-
-st.sidebar.image("logo.png", use_container_width=True)
-st.caption("Sistema inteligente de gestão e automação SaaS")
 
 # ==============================
 # MENU
@@ -132,8 +128,8 @@ def criar_pagamento(uid, email):
 if menu == "📊 Dashboard":
     st.title("📊 Painel Inteligente")
 
-    clientes = list(db.collection("clientes").stream())
-    servicos = list(db.collection("servicos").stream())
+    clientes = list(clientes_ref.stream())
+    servicos = list(servicos_ref.stream())
 
     col1, col2, col3 = st.columns(3)
 
@@ -146,9 +142,7 @@ if menu == "📊 Dashboard":
         "Total": [len(clientes), len(servicos)]
     }).set_index("Categoria"))
 
-    st.success("Firebase conectado")
-    st.success("Mercado Pago ativo")
-    st.info("SaaS operacional")
+    st.success("Sistema SaaS ativo")
 
 # ==============================
 # CLIENTES
@@ -161,12 +155,12 @@ elif menu == "👤 Clientes":
 
     if st.button("➕ Adicionar Cliente"):
         if nome:
-            db.collection("clientes").add({"nome": nome})
+            clientes_ref.add({"nome": nome})
             st.success("Cliente adicionado!")
 
     st.markdown("### Lista de Clientes")
 
-    for c in db.collection("clientes").stream():
+    for c in clientes_ref.stream():
         data = c.to_dict()
 
         col1, col2 = st.columns([8, 2])
@@ -174,7 +168,6 @@ elif menu == "👤 Clientes":
         with col1:
             st.markdown(f"👤 **{data['nome']}**")
 
-        # ================= EDITAR =================
         if st.session_state.get(f"edit_c_{c.id}"):
 
             novo_nome = st.text_input(
@@ -187,11 +180,8 @@ elif menu == "👤 Clientes":
 
             with colA:
                 if st.button("💾 Salvar", key=f"save_c_{c.id}"):
-                    db.collection("clientes").document(c.id).update({
-                        "nome": novo_nome
-                    })
+                    clientes_ref.document(c.id).update({"nome": novo_nome})
                     st.session_state[f"edit_c_{c.id}"] = False
-                    st.success("Atualizado!")
                     st.rerun()
 
             with colB:
@@ -204,30 +194,12 @@ elif menu == "👤 Clientes":
                 st.session_state[f"edit_c_{c.id}"] = True
                 st.rerun()
 
-        # ================= EXCLUIR =================
         if st.button("🗑 Excluir", key=f"del_c_{c.id}"):
-            st.session_state[f"confirm_c_{c.id}"] = True
-
-        if st.session_state.get(f"confirm_c_{c.id}"):
-
-            st.warning(f"Excluir **{data['nome']}**?")
-
-            colA, colB = st.columns(2)
-
-            with colA:
-                if st.button("❌ Cancelar", key=f"cancel_del_c_{c.id}"):
-                    st.session_state[f"confirm_c_{c.id}"] = False
-                    st.rerun()
-
-            with colB:
-                if st.button("✅ Confirmar", key=f"confirm_del_c_{c.id}"):
-                    db.collection("clientes").document(c.id).delete()
-                    st.session_state[f"confirm_c_{c.id}"] = False
-                    st.success("Cliente excluído!")
-                    st.rerun()
+            clientes_ref.document(c.id).delete()
+            st.rerun()
 
 # ==============================
-# SERVIÇOS (CORRIGIDO TOTAL)
+# SERVIÇOS
 # ==============================
 
 elif menu == "🛠 Serviços":
@@ -238,7 +210,7 @@ elif menu == "🛠 Serviços":
 
     if st.button("➕ Salvar Serviço"):
         if cliente and servico:
-            db.collection("servicos").add({
+            servicos_ref.add({
                 "cliente": cliente,
                 "servico": servico
             })
@@ -246,7 +218,7 @@ elif menu == "🛠 Serviços":
 
     st.markdown("### Lista de Serviços")
 
-    for s in db.collection("servicos").stream():
+    for s in servicos_ref.stream():
         data = s.to_dict()
 
         col1, col2 = st.columns([8, 2])
@@ -254,57 +226,9 @@ elif menu == "🛠 Serviços":
         with col1:
             st.markdown(f"🛠 **{data['cliente']} - {data['servico']}**")
 
-        # ================= EDITAR =================
-        if st.session_state.get(f"edit_s_{s.id}"):
-
-            novo_servico = st.text_input(
-                "Editar serviço",
-                value=data["servico"],
-                key=f"input_s_{s.id}"
-            )
-
-            colA, colB = st.columns(2)
-
-            with colA:
-                if st.button("💾 Salvar", key=f"save_s_{s.id}"):
-                    db.collection("servicos").document(s.id).update({
-                        "servico": novo_servico
-                    })
-                    st.session_state[f"edit_s_{s.id}"] = False
-                    st.success("Atualizado!")
-                    st.rerun()
-
-            with colB:
-                if st.button("❌ Cancelar", key=f"cancel_s_{s.id}"):
-                    st.session_state[f"edit_s_{s.id}"] = False
-                    st.rerun()
-
-        else:
-            if st.button("✏️ Editar", key=f"edit_btn_s_{s.id}"):
-                st.session_state[f"edit_s_{s.id}"] = True
-                st.rerun()
-
-        # ================= EXCLUIR =================
         if st.button("🗑 Excluir", key=f"del_s_{s.id}"):
-            st.session_state[f"confirm_s_{s.id}"] = True
-
-        if st.session_state.get(f"confirm_s_{s.id}"):
-
-            st.warning(f"Excluir serviço de **{data['cliente']} - {data['servico']}**?")
-
-            colA, colB = st.columns(2)
-
-            with colA:
-                if st.button("❌ Cancelar", key=f"cancel_del_s_{s.id}"):
-                    st.session_state[f"confirm_s_{s.id}"] = False
-                    st.rerun()
-
-            with colB:
-                if st.button("✅ Confirmar", key=f"confirm_del_s_{s.id}"):
-                    db.collection("servicos").document(s.id).delete()
-                    st.session_state[f"confirm_s_{s.id}"] = False
-                    st.success("Serviço excluído!")
-                    st.rerun()
+            servicos_ref.document(s.id).delete()
+            st.rerun()
 
 # ==============================
 # PLANO
