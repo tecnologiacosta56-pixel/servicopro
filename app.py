@@ -2,12 +2,16 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 import mercadopago
+import pandas as pd
 
 # ==============================
 # CONFIG
 # ==============================
 
-st.set_page_config(page_title="ServiçoPro SaaS", layout="wide")
+st.set_page_config(
+    page_title="ServiçoPro SaaS",
+    layout="wide"
+)
 
 # ==============================
 # FIREBASE
@@ -24,7 +28,9 @@ db = firestore.client()
 # MERCADO PAGO
 # ==============================
 
-sdk = mercadopago.SDK(st.secrets["mercadopago"]["MP_ACCESS_TOKEN"])
+sdk = mercadopago.SDK(
+    st.secrets["mercadopago"]["MP_ACCESS_TOKEN"]
+)
 
 # ==============================
 # USUÁRIO
@@ -40,7 +46,7 @@ if not user_ref.get().exists:
 plano = user_ref.get().to_dict()["plano"]
 
 # ==============================
-# ESTILO VISUAL (NÍVEL SaaS)
+# ESTILO VISUAL PREMIUM
 # ==============================
 
 st.markdown("""
@@ -51,7 +57,7 @@ st.markdown("""
     color: white;
 }
 
-/* BOTÕES GERAIS */
+/* BOTÕES */
 div.stButton > button {
     background: linear-gradient(90deg, #06b6d4, #22c55e);
     color: white;
@@ -67,23 +73,31 @@ div.stButton > button:hover {
     box-shadow: 0px 0px 15px #22c55e;
 }
 
-/* CARDS */
+/* CARD */
 .card {
     background: rgba(255,255,255,0.05);
     padding: 15px;
     border-radius: 12px;
-    margin-bottom: 10px;
     border: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 10px;
 }
 
-.icon-btn {
-    cursor: pointer;
-    margin-left: 10px;
-    font-size: 18px;
+.logo {
+    font-size: 28px;
+    font-weight: bold;
+    color: #22c55e;
+    margin-bottom: 10px;
 }
 
 </style>
 """, unsafe_allow_html=True)
+
+# ==============================
+# LOGO
+# ==============================
+
+st.markdown("<div class='logo'>🚀 ServiçoPro SaaS</div>", unsafe_allow_html=True)
+st.caption("Sistema inteligente de gestão, clientes e automação")
 
 # ==============================
 # MENU
@@ -119,20 +133,33 @@ def criar_pagamento(uid, email):
         return None
 
 # ==============================
-# DASHBOARD
+# DASHBOARD (COM GRÁFICO)
 # ==============================
 
 if menu == "📊 Dashboard":
-    st.title("📊 Dashboard SaaS")
+    st.title("📊 Dashboard")
+
+    clientes = list(db.collection("clientes").stream())
+    servicos = list(db.collection("servicos").stream())
 
     col1, col2, col3 = st.columns(3)
 
     col1.metric("Plano", plano.upper())
-    col2.metric("Clientes", len(list(db.collection("clientes").stream())))
-    col3.metric("Serviços", len(list(db.collection("servicos").stream())))
+    col2.metric("Clientes", len(clientes))
+    col3.metric("Serviços", len(servicos))
+
+    # GRÁFICO SIMPLES
+    st.subheader("📈 Atividade do Sistema")
+
+    df = pd.DataFrame({
+        "Categoria": ["Clientes", "Serviços"],
+        "Total": [len(clientes), len(servicos)]
+    })
+
+    st.bar_chart(df.set_index("Categoria"))
 
 # ==============================
-# CLIENTES (CRUD VISUAL)
+# CLIENTES
 # ==============================
 
 elif menu == "👤 Clientes":
@@ -146,9 +173,7 @@ elif menu == "👤 Clientes":
 
     st.markdown("### Lista de Clientes")
 
-    clientes = db.collection("clientes").stream()
-
-    for c in clientes:
+    for c in db.collection("clientes").stream():
         data = c.to_dict()
 
         col1, col2 = st.columns([8, 2])
@@ -162,7 +187,7 @@ elif menu == "👤 Clientes":
                 st.rerun()
 
 # ==============================
-# SERVIÇOS (CRUD VISUAL)
+# SERVIÇOS
 # ==============================
 
 elif menu == "🛠 Serviços":
@@ -180,9 +205,7 @@ elif menu == "🛠 Serviços":
 
     st.markdown("### Lista de Serviços")
 
-    servicos = db.collection("servicos").stream()
-
-    for s in servicos:
+    for s in db.collection("servicos").stream():
         data = s.to_dict()
 
         col1, col2 = st.columns([8, 2])
@@ -199,7 +222,7 @@ elif menu == "🛠 Serviços":
                 st.rerun()
 
 # ==============================
-# PLANO
+# PLANO (BOTÃO BONITO)
 # ==============================
 
 elif menu == "💳 Plano":
@@ -208,13 +231,29 @@ elif menu == "💳 Plano":
     st.write(f"Plano atual: **{plano.upper()}**")
 
     if plano == "free":
-        if st.button("🚀 Upgrade PRO"):
+        if st.button("🚀 Fazer Upgrade PRO"):
             link = criar_pagamento(uid, email)
 
             if link:
                 st.success("Pagamento gerado!")
-                st.markdown(f"[Ir para pagamento]({link})")
+
+                st.markdown(f"""
+                <a href="{link}" target="_blank">
+                    <button style="
+                        background: linear-gradient(90deg, #06b6d4, #22c55e);
+                        color: white;
+                        padding: 12px;
+                        border: none;
+                        border-radius: 10px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">
+                    💳 Ir para Pagamento
+                    </button>
+                </a>
+                """, unsafe_allow_html=True)
+
             else:
-                st.error("Erro no pagamento.")
+                st.error("Erro ao gerar pagamento.")
     else:
         st.success("Você já é PRO 🎉")
