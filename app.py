@@ -1,7 +1,6 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
-import mercadopago
 import pandas as pd
 
 # ==================================================
@@ -15,35 +14,60 @@ st.set_page_config(
 )
 
 # ==================================================
+# DEBUG VISUAL
+# ==================================================
+
+st.write("🚀 App iniciado")
+
+# ==================================================
 # FIREBASE INIT
 # ==================================================
 
 try:
+
     firebase_admin.get_app()
+
+    st.write("✅ Firebase já inicializado")
 
 except ValueError:
 
-    firebase_config = st.secrets["firebase"]
+    try:
 
-    firebase_dict = dict(firebase_config)
+        firebase_config = st.secrets["firebase"]
 
-    firebase_dict["private_key"] = firebase_dict[
-        "private_key"
-    ].replace("\\n", "\n")
+        firebase_dict = dict(firebase_config)
 
-    cred = credentials.Certificate(firebase_dict)
+        firebase_dict["private_key"] = firebase_dict[
+            "private_key"
+        ].replace("\\n", "\n")
 
-    firebase_admin.initialize_app(cred)
+        cred = credentials.Certificate(firebase_dict)
 
-db = firestore.client()
+        firebase_admin.initialize_app(cred)
+
+        st.write("✅ Firebase inicializado")
+
+    except Exception as e:
+
+        st.error(f"❌ Erro Firebase: {e}")
+
+        st.stop()
 
 # ==================================================
-# MERCADO PAGO
+# FIRESTORE
 # ==================================================
 
-sdk = mercadopago.SDK(
-    st.secrets["mercadopago"]["MP_ACCESS_TOKEN"]
-)
+try:
+
+    db = firestore.client()
+
+    st.write("✅ Firestore conectado")
+
+except Exception as e:
+
+    st.error(f"❌ Erro Firestore: {e}")
+
+    st.stop()
 
 # ==================================================
 # SESSION STATE
@@ -69,47 +93,52 @@ def login(email):
 
     try:
 
-        users = db.collection(
-            "usuarios"
-        ).where(
-            "email",
-            "==",
-            email
-        ).limit(1).stream()
+        st.write("🔍 Procurando usuário...")
 
-        usuario = None
-        uid = None
+        users = list(
 
-        for u in users:
-
-            usuario = u.to_dict()
-            uid = u.id
-
-        if usuario:
-
-            if "empresa_id" not in usuario:
-                return False
-
-            st.session_state.uid = uid
-
-            st.session_state.empresa_id = usuario[
-                "empresa_id"
-            ]
-
-            st.session_state.role = usuario.get(
-                "role",
-                "member"
+            db.collection("usuarios")
+            .where(
+                "email",
+                "==",
+                email
             )
+            .limit(1)
+            .stream()
 
-            st.session_state.authenticated = True
+        )
 
-            return True
+        st.write(f"📦 Usuários encontrados: {len(users)}")
 
-        return False
+        if len(users) == 0:
+            return False
+
+        user_doc = users[0]
+
+        usuario = user_doc.to_dict()
+
+        st.write("✅ Usuário localizado")
+
+        st.session_state.uid = user_doc.id
+
+        st.session_state.empresa_id = usuario.get(
+            "empresa_id"
+        )
+
+        st.session_state.role = usuario.get(
+            "role",
+            "member"
+        )
+
+        st.session_state.authenticated = True
+
+        st.write("✅ Sessão criada")
+
+        return True
 
     except Exception as e:
 
-        st.error(f"Erro login: {e}")
+        st.error(f"❌ Erro login: {e}")
 
         return False
 
@@ -145,10 +174,13 @@ if not st.session_state.authenticated:
 
         sucesso = login(email)
 
+        st.write("📌 Estado sessão:")
+        st.write(st.session_state)
+
         if sucesso:
 
             st.success(
-                "Login realizado com sucesso!"
+                "✅ Login realizado"
             )
 
             st.rerun()
@@ -156,27 +188,29 @@ if not st.session_state.authenticated:
         else:
 
             st.error(
-                "Usuário não encontrado."
+                "❌ Usuário não encontrado"
             )
 
     st.stop()
 
 # ==================================================
-# VALIDA EMPRESA
+# EMPRESA
 # ==================================================
 
 empresa_id = st.session_state.empresa_id
 
+st.write(f"🏢 Empresa ID: {empresa_id}")
+
 if not empresa_id:
 
     st.error(
-        "Empresa não encontrada."
+        "❌ Empresa não encontrada"
     )
 
     st.stop()
 
 # ==================================================
-# REFERÊNCIAS FIRESTORE
+# REFERÊNCIAS
 # ==================================================
 
 empresa_ref = db.collection(
@@ -230,50 +264,62 @@ if menu == "📊 Dashboard":
 
     st.title("📊 Dashboard SaaS")
 
-    clientes = list(
-        clientes_ref.stream()
-    )
+    try:
 
-    servicos = list(
-        servicos_ref.stream()
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric(
-        "Empresa",
-        empresa_id
-    )
-
-    col2.metric(
-        "Clientes",
-        len(clientes)
-    )
-
-    col3.metric(
-        "Serviços",
-        len(servicos)
-    )
-
-    chart_data = pd.DataFrame({
-
-        "Categoria": [
-            "Clientes",
-            "Serviços"
-        ],
-
-        "Total": [
-            len(clientes),
-            len(servicos)
-        ]
-
-    })
-
-    st.bar_chart(
-        chart_data.set_index(
-            "Categoria"
+        clientes = list(
+            clientes_ref.stream()
         )
-    )
+
+        servicos = list(
+            servicos_ref.stream()
+        )
+
+        st.success(
+            "✅ Dashboard carregado"
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(
+            "Empresa",
+            empresa_id
+        )
+
+        col2.metric(
+            "Clientes",
+            len(clientes)
+        )
+
+        col3.metric(
+            "Serviços",
+            len(servicos)
+        )
+
+        chart_data = pd.DataFrame({
+
+            "Categoria": [
+                "Clientes",
+                "Serviços"
+            ],
+
+            "Total": [
+                len(clientes),
+                len(servicos)
+            ]
+
+        })
+
+        st.bar_chart(
+            chart_data.set_index(
+                "Categoria"
+            )
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Erro dashboard: {e}"
+        )
 
 # ==================================================
 # CLIENTES
@@ -287,68 +333,27 @@ elif menu == "👤 Clientes":
         "Nome do cliente"
     )
 
-    telefone = st.text_input(
-        "Telefone"
-    )
-
-    endereco = st.text_input(
-        "Endereço"
-    )
-
     if st.button(
         "➕ Adicionar Cliente"
     ):
 
-        if nome:
+        try:
 
             clientes_ref.add({
-
-                "nome": nome,
-                "telefone": telefone,
-                "endereco": endereco
-
+                "nome": nome
             })
 
             st.success(
-                "Cliente adicionado!"
+                "✅ Cliente adicionado"
             )
 
             st.rerun()
 
-    st.divider()
+        except Exception as e:
 
-    clientes = clientes_ref.stream()
-
-    for c in clientes:
-
-        data = c.to_dict()
-
-        col1, col2 = st.columns([8, 2])
-
-        with col1:
-
-            st.write(
-                f"""
-👤 {data.get('nome', '')}
-
-📞 {data.get('telefone', '')}
-
-📍 {data.get('endereco', '')}
-"""
+            st.error(
+                f"❌ Erro: {e}"
             )
-
-        with col2:
-
-            if st.button(
-                "🗑 Excluir",
-                key=c.id
-            ):
-
-                clientes_ref.document(
-                    c.id
-                ).delete()
-
-                st.rerun()
 
 # ==================================================
 # SERVIÇOS
@@ -366,76 +371,30 @@ elif menu == "🛠 Serviços":
         "Serviço"
     )
 
-    valor = st.text_input(
-        "Valor"
-    )
-
-    status = st.selectbox(
-        "Status",
-        [
-            "pendente",
-            "em andamento",
-            "concluido"
-        ]
-    )
-
     if st.button(
         "➕ Salvar Serviço"
     ):
 
-        if cliente and servico:
+        try:
 
             servicos_ref.add({
 
                 "cliente": cliente,
-                "servico": servico,
-                "valor": valor,
-                "status": status
+                "servico": servico
 
             })
 
             st.success(
-                "Serviço salvo!"
+                "✅ Serviço salvo"
             )
 
             st.rerun()
 
-    st.divider()
+        except Exception as e:
 
-    servicos = servicos_ref.stream()
-
-    for s in servicos:
-
-        data = s.to_dict()
-
-        col1, col2 = st.columns([8, 2])
-
-        with col1:
-
-            st.write(
-                f"""
-🛠 {data.get('cliente', '')}
-
-🔧 {data.get('servico', '')}
-
-💰 R$ {data.get('valor', '')}
-
-📌 {data.get('status', '')}
-"""
+            st.error(
+                f"❌ Erro: {e}"
             )
-
-        with col2:
-
-            if st.button(
-                "🗑 Excluir",
-                key=s.id
-            ):
-
-                servicos_ref.document(
-                    s.id
-                ).delete()
-
-                st.rerun()
 
 # ==================================================
 # PLANO
@@ -446,18 +405,5 @@ elif menu == "💳 Plano":
     st.title("💳 Plano SaaS")
 
     st.success(
-        "Sistema estabilizado 🚀"
-    )
-
-    st.info(
-        """
-Próximas fases:
-
-✅ Firebase Auth real
-✅ Mercado Pago recorrente
-✅ Multiusuários
-✅ Painel Admin
-✅ Multiempresa SaaS
-✅ Automação inteligente
-"""
+        "✅ Sistema estabilizado"
     )
