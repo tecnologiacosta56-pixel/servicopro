@@ -50,16 +50,16 @@ sdk = mercadopago.SDK(
 # ==================================================
 
 if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+    st.session_state.authenticated = False
 
 if "uid" not in st.session_state:
-    st.session_state["uid"] = None
+    st.session_state.uid = None
 
 if "empresa_id" not in st.session_state:
-    st.session_state["empresa_id"] = None
+    st.session_state.empresa_id = None
 
 if "role" not in st.session_state:
-    st.session_state["role"] = None
+    st.session_state.role = None
 
 # ==================================================
 # LOGIN
@@ -67,31 +67,39 @@ if "role" not in st.session_state:
 
 def login(email):
 
-    users = db.collection("usuarios").where(
+    usuarios_ref = db.collection("usuarios")
+
+    query = usuarios_ref.where(
         "email",
         "==",
         email
-    ).stream()
+    ).limit(1).stream()
 
-    for u in users:
+    usuario = None
+    uid = None
 
-        data = u.to_dict()
+    for doc in query:
 
-        if "empresa_id" not in data:
+        usuario = doc.to_dict()
+        uid = doc.id
+
+    if usuario:
+
+        if "empresa_id" not in usuario:
             return False
 
-        st.session_state["uid"] = u.id
+        st.session_state.authenticated = True
 
-        st.session_state["empresa_id"] = data[
+        st.session_state.uid = uid
+
+        st.session_state.empresa_id = usuario.get(
             "empresa_id"
-        ]
+        )
 
-        st.session_state["role"] = data.get(
+        st.session_state.role = usuario.get(
             "role",
             "member"
         )
-
-        st.session_state["authenticated"] = True
 
         return True
 
@@ -103,10 +111,10 @@ def login(email):
 
 def logout():
 
-    st.session_state["authenticated"] = False
-    st.session_state["uid"] = None
-    st.session_state["empresa_id"] = None
-    st.session_state["role"] = None
+    st.session_state.authenticated = False
+    st.session_state.uid = None
+    st.session_state.empresa_id = None
+    st.session_state.role = None
 
     st.rerun()
 
@@ -114,24 +122,28 @@ def logout():
 # LOGIN SCREEN
 # ==================================================
 
-if not st.session_state["authenticated"]:
+if not st.session_state.authenticated:
 
     st.title("🔐 Login ServiçoPro SaaS")
 
-    email = st.text_input("Email")
-
     st.info(
-        "Sistema em modo MVP. "
+        "Sistema em modo MVP.\n"
         "Digite o email cadastrado no Firestore."
     )
 
+    email = st.text_input("Email")
+
     if st.button("Entrar"):
 
-        if login(email):
+        sucesso = login(email)
+
+        if sucesso:
 
             st.success(
                 "Login realizado com sucesso!"
             )
+
+            st.rerun()
 
         else:
 
@@ -145,7 +157,15 @@ if not st.session_state["authenticated"]:
 # CONTEXTO EMPRESA
 # ==================================================
 
-empresa_id = st.session_state["empresa_id"]
+empresa_id = st.session_state.empresa_id
+
+if not empresa_id:
+
+    st.error(
+        "Empresa não encontrada."
+    )
+
+    st.stop()
 
 empresa_ref = db.collection(
     "empresas"
@@ -172,7 +192,7 @@ st.sidebar.write(
 )
 
 st.sidebar.write(
-    f"Perfil: {st.session_state['role']}"
+    f"Perfil: {st.session_state.role}"
 )
 
 st.sidebar.button(
@@ -198,11 +218,11 @@ if menu == "📊 Dashboard":
 
     st.title("📊 Dashboard SaaS")
 
-    clientes = list(
+    clientes_docs = list(
         clientes_ref.stream()
     )
 
-    servicos = list(
+    servicos_docs = list(
         servicos_ref.stream()
     )
 
@@ -215,12 +235,12 @@ if menu == "📊 Dashboard":
 
     col2.metric(
         "Clientes",
-        len(clientes)
+        len(clientes_docs)
     )
 
     col3.metric(
         "Serviços",
-        len(servicos)
+        len(servicos_docs)
     )
 
     chart_data = pd.DataFrame({
@@ -229,8 +249,8 @@ if menu == "📊 Dashboard":
             "Serviços"
         ],
         "Total": [
-            len(clientes),
-            len(servicos)
+            len(clientes_docs),
+            len(servicos_docs)
         ]
     })
 
@@ -252,6 +272,14 @@ elif menu == "👤 Clientes":
         "Nome do cliente"
     )
 
+    telefone = st.text_input(
+        "Telefone"
+    )
+
+    endereco = st.text_input(
+        "Endereço"
+    )
+
     if st.button(
         "➕ Adicionar Cliente"
     ):
@@ -259,7 +287,11 @@ elif menu == "👤 Clientes":
         if nome:
 
             clientes_ref.add({
-                "nome": nome
+
+                "nome": nome,
+                "telefone": telefone,
+                "endereco": endereco
+
             })
 
             st.success(
@@ -281,7 +313,13 @@ elif menu == "👤 Clientes":
         with col1:
 
             st.write(
-                f"👤 {data['nome']}"
+                f"""
+                👤 {data.get('nome', '')}
+
+                📞 {data.get('telefone', '')}
+
+                📍 {data.get('endereco', '')}
+                """
             )
 
         with col2:
@@ -313,6 +351,19 @@ elif menu == "🛠 Serviços":
         "Serviço"
     )
 
+    valor = st.text_input(
+        "Valor"
+    )
+
+    status = st.selectbox(
+        "Status",
+        [
+            "pendente",
+            "em andamento",
+            "concluido"
+        ]
+    )
+
     if st.button(
         "➕ Salvar Serviço"
     ):
@@ -320,8 +371,12 @@ elif menu == "🛠 Serviços":
         if cliente and servico:
 
             servicos_ref.add({
+
                 "cliente": cliente,
-                "servico": servico
+                "servico": servico,
+                "valor": valor,
+                "status": status
+
             })
 
             st.success(
@@ -343,7 +398,15 @@ elif menu == "🛠 Serviços":
         with col1:
 
             st.write(
-                f"🛠 {data['cliente']} - {data['servico']}"
+                f"""
+                🛠 {data.get('cliente', '')}
+
+                🔧 {data.get('servico', '')}
+
+                💰 R$ {data.get('valor', '')}
+
+                📌 {data.get('status', '')}
+                """
             )
 
         with col2:
@@ -372,9 +435,11 @@ elif menu == "💳 Plano":
     )
 
     st.info(
-        "Próxima fase:\n"
-        "- Firebase Auth real\n"
-        "- Pagamentos Mercado Pago\n"
-        "- Multiusuários\n"
-        "- Automação SaaS"
+        "Próximas fases:\n\n"
+        "✅ Firebase Auth real\n"
+        "✅ Mercado Pago recorrente\n"
+        "✅ Multiusuários\n"
+        "✅ Painel Admin\n"
+        "✅ Multiempresa SaaS\n"
+        "✅ Automação inteligente"
     )
