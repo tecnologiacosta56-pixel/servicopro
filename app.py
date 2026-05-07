@@ -1,7 +1,6 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
-import pandas as pd
 import os
 
 # ==================================================
@@ -28,11 +27,6 @@ div.stButton > button {
     font-weight: bold;
 }
 
-div.stButton > button:hover {
-    background: linear-gradient(90deg, #06B6D4, #4F46E5);
-}
-
-/* sidebar */
 section[data-testid="stSidebar"] {
     background-color: #0f172a;
     color: white;
@@ -65,7 +59,7 @@ except ValueError:
 db = firestore.client()
 
 # ==================================================
-# SESSION
+# STATE
 # ==================================================
 
 if "auth" not in st.session_state:
@@ -74,17 +68,16 @@ if "auth" not in st.session_state:
 if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
+if "delete_id" not in st.session_state:
+    st.session_state.delete_id = None
+
 # ==================================================
 # LOGIN
 # ==================================================
 
 def login():
 
-    doc = db.collection(
-        "usuarios"
-    ).document(
-        "user123"
-    ).get()
+    doc = db.collection("usuarios").document("user123").get()
 
     if not doc.exists:
         return False
@@ -101,7 +94,6 @@ def login():
 # ==================================================
 
 def logout():
-
     st.session_state.auth = False
     st.session_state.empresa_id = None
     st.rerun()
@@ -117,13 +109,10 @@ if not st.session_state.auth:
     if st.button("Entrar"):
 
         if login():
-
             st.success("Login OK")
-
             st.rerun()
 
         else:
-
             st.error("Erro login")
 
     st.stop()
@@ -140,7 +129,7 @@ clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
 
 # ==================================================
-# SIDEBAR LOGO (ROBUSTA)
+# SIDEBAR LOGO (100% SEGURA)
 # ==================================================
 
 if os.path.exists("assets/logo.png"):
@@ -176,11 +165,7 @@ elif menu == "Clientes":
     nome = st.text_input("Nome")
 
     if st.button("➕ Adicionar") and nome:
-
         clientes_ref.add({"nome": nome})
-
-        st.success("Adicionado")
-
         st.rerun()
 
     st.divider()
@@ -188,43 +173,61 @@ elif menu == "Clientes":
     for c in clientes_ref.get():
 
         data = c.to_dict()
+        cid = c.id
 
         col1, col2, col3 = st.columns([6, 2, 2])
 
         with col1:
             st.write(f"👤 {data.get('nome')}")
 
-        # EDITAR
+        # EDITAR (CORRIGIDO)
         with col2:
 
-            if st.button("✏️ Editar", key="e"+c.id):
+            if st.button("✏️", key="edit"+cid):
+                st.session_state["edit_"+cid] = True
+
+            if st.session_state.get("edit_"+cid):
 
                 novo_nome = st.text_input(
                     "Novo nome",
                     value=data.get("nome"),
-                    key="edit_"+c.id
+                    key="input_"+cid
                 )
 
-                if st.button("Salvar", key="save"+c.id):
+                if st.button("Salvar", key="save"+cid):
 
-                    clientes_ref.document(c.id).update({
+                    clientes_ref.document(cid).update({
                         "nome": novo_nome
                     })
 
+                    st.session_state["edit_"+cid] = False
                     st.rerun()
 
-        # EXCLUIR COM CONFIRMAÇÃO
+                if st.button("Cancelar", key="cancel"+cid):
+                    st.session_state["edit_"+cid] = False
+                    st.rerun()
+
+        # EXCLUIR COM CONFIRMAÇÃO REAL
         with col3:
 
-            if st.button("🗑", key=c.id):
+            if st.button("🗑", key="del"+cid):
+                st.session_state.delete_id = cid
 
-                st.warning("Tem certeza?")
+    # CONFIRMAÇÃO GLOBAL (FORA DO LOOP)
+    if st.session_state.delete_id:
 
-                if st.button("Confirmar exclusão", key="del"+c.id):
+        st.warning("Confirmar exclusão?")
 
-                    clientes_ref.document(c.id).delete()
+        colA, colB = st.columns(2)
 
-                    st.rerun()
+        if colA.button("Sim"):
+            clientes_ref.document(st.session_state.delete_id).delete()
+            st.session_state.delete_id = None
+            st.rerun()
+
+        if colB.button("Cancelar"):
+            st.session_state.delete_id = None
+            st.rerun()
 
 # ==================================================
 # SERVIÇOS
@@ -238,14 +241,10 @@ elif menu == "Serviços":
     servico = st.text_input("Serviço")
 
     if st.button("➕ Salvar") and cliente and servico:
-
         servicos_ref.add({
             "cliente": cliente,
             "servico": servico
         })
-
-        st.success("Salvo")
-
         st.rerun()
 
     st.divider()
@@ -253,38 +252,17 @@ elif menu == "Serviços":
     for s in servicos_ref.get():
 
         data = s.to_dict()
+        sid = s.id
 
-        col1, col2, col3 = st.columns([6, 2, 2])
+        col1, col2 = st.columns([8, 2])
 
         with col1:
             st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
 
         with col2:
 
-            if st.button("✏️", key="e"+s.id):
+            if st.button("🗑", key=sid):
 
-                novo = st.text_input(
-                    "Editar serviço",
-                    value=data.get("servico"),
-                    key="se"+s.id
-                )
+                servicos_ref.document(sid).delete()
 
-                if st.button("Salvar", key="ss"+s.id):
-
-                    servicos_ref.document(s.id).update({
-                        "servico": novo
-                    })
-
-                    st.rerun()
-
-        with col3:
-
-            if st.button("🗑", key=s.id):
-
-                st.warning("Confirmar exclusão")
-
-                if st.button("Sim", key="del"+s.id):
-
-                    servicos_ref.document(s.id).delete()
-
-                    st.rerun()
+                st.rerun()
