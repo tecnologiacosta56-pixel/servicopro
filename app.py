@@ -179,6 +179,10 @@ if menu == "📊 Dashboard":
 # CLIENTES
 # ==============================
 
+# ==============================
+# CLIENTES (CRUD PROFISSIONAL)
+# ==============================
+
 elif menu == "👤 Clientes":
     st.title("👤 Gestão de Clientes")
 
@@ -196,13 +200,26 @@ elif menu == "👤 Clientes":
     for c in db.collection("clientes").stream():
         data = c.to_dict()
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2, col3 = st.columns([7, 1, 1])
 
         with col1:
-            st.markdown(f"<div class='card'>👤 {data['nome']}</div>", unsafe_allow_html=True)
+            st.markdown(f"👤 **{data['nome']}**")
 
+        # ================= EDITAR =================
         with col2:
-            if st.button("🗑", key=c.id):
+            if st.button("✏️", key=f"edit_{c.id}"):
+                novo_nome = st.text_input("Editar nome", value=data["nome"], key=f"input_{c.id}")
+
+                if st.button("Salvar", key=f"save_{c.id}"):
+                    db.collection("clientes").document(c.id).update({
+                        "nome": novo_nome
+                    })
+                    st.success("Atualizado!")
+                    st.rerun()
+
+        # ================= EXCLUIR =================
+        with col3:
+            if st.button("🗑", key=f"del_{c.id}"):
                 db.collection("clientes").document(c.id).delete()
                 st.rerun()
 
@@ -217,33 +234,41 @@ elif menu == "🛠 Serviços":
     servico = st.text_input("Serviço")
 
     if st.button("➕ Salvar Serviço"):
-        if cliente and servico:
-            db.collection("servicos").add({
-                "cliente": cliente,
-                "servico": servico
-            })
-            st.success("Serviço salvo!")
-        else:
-            st.warning("Preencha todos os campos.")
+        db.collection("servicos").add({
+            "cliente": cliente,
+            "servico": servico
+        })
+        st.success("Serviço salvo!")
 
     st.markdown("### Lista de Serviços")
 
     for s in db.collection("servicos").stream():
         data = s.to_dict()
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2, col3 = st.columns([7, 1, 1])
 
         with col1:
-            st.markdown(
-                f"<div class='card'>🛠 {data['cliente']} - {data['servico']}</div>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"🛠 **{data['cliente']} - {data['servico']}**")
 
         with col2:
-            if st.button("🗑", key=s.id):
+            if st.button("✏️", key=f"edit_s_{s.id}"):
+                novo_servico = st.text_input(
+                    "Editar serviço",
+                    value=data["servico"],
+                    key=f"input_s_{s.id}"
+                )
+
+                if st.button("Salvar S", key=f"save_s_{s.id}"):
+                    db.collection("servicos").document(s.id).update({
+                        "servico": novo_servico
+                    })
+                    st.success("Atualizado!")
+                    st.rerun()
+
+        with col3:
+            if st.button("🗑", key=f"del_s_{s.id}"):
                 db.collection("servicos").document(s.id).delete()
                 st.rerun()
-
 # ==============================
 # PLANO (UPGRADE SAAS)
 # ==============================
