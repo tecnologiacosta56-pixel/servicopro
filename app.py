@@ -15,29 +15,24 @@ st.set_page_config(
 )
 
 # ==================================================
-# CSS (UI SaaS)
+# CSS
 # ==================================================
 
 st.markdown("""
 <style>
 
-/* Botões com degradê */
 div.stButton > button {
     background: linear-gradient(90deg, #4F46E5, #06B6D4);
     color: white;
     border-radius: 10px;
-    border: none;
-    padding: 0.5rem 1rem;
     font-weight: bold;
 }
 
-/* Hover botão */
 div.stButton > button:hover {
     background: linear-gradient(90deg, #06B6D4, #4F46E5);
-    color: white;
 }
 
-/* Sidebar estilo SaaS */
+/* sidebar */
 section[data-testid="stSidebar"] {
     background-color: #0f172a;
     color: white;
@@ -47,7 +42,7 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 # ==================================================
-# FIREBASE INIT
+# FIREBASE
 # ==================================================
 
 try:
@@ -70,17 +65,17 @@ except ValueError:
 db = firestore.client()
 
 # ==================================================
-# SESSION STATE
+# SESSION
 # ==================================================
 
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+if "auth" not in st.session_state:
+    st.session_state.auth = False
 
 if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
 # ==================================================
-# LOGIN FIXO (user123)
+# LOGIN
 # ==================================================
 
 def login():
@@ -96,7 +91,7 @@ def login():
 
     user = doc.to_dict()
 
-    st.session_state.authenticated = True
+    st.session_state.auth = True
     st.session_state.empresa_id = user.get("empresa_id")
 
     return True
@@ -107,7 +102,7 @@ def login():
 
 def logout():
 
-    st.session_state.authenticated = False
+    st.session_state.auth = False
     st.session_state.empresa_id = None
     st.rerun()
 
@@ -115,7 +110,7 @@ def logout():
 # LOGIN SCREEN
 # ==================================================
 
-if not st.session_state.authenticated:
+if not st.session_state.auth:
 
     st.title("🔐 ServiçoPro SaaS")
 
@@ -129,27 +124,23 @@ if not st.session_state.authenticated:
 
         else:
 
-            st.error("Usuário não encontrado")
+            st.error("Erro login")
 
     st.stop()
 
 # ==================================================
-# EMPRESA CONTEXTO
+# EMPRESA
 # ==================================================
 
 empresa_id = st.session_state.empresa_id
 
-empresa_ref = db.collection(
-    "empresas"
-).document(
-    empresa_id
-)
+empresa_ref = db.collection("empresas").document(empresa_id)
 
 clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
 
 # ==================================================
-# SIDEBAR (LOGO SEGURA)
+# SIDEBAR LOGO (ROBUSTA)
 # ==================================================
 
 if os.path.exists("assets/logo.png"):
@@ -157,16 +148,11 @@ if os.path.exists("assets/logo.png"):
 else:
     st.sidebar.markdown("## 🚀 ServiçoPro")
 
-st.sidebar.title("ServiçoPro")
-
 st.sidebar.write(f"Empresa: {empresa_id}")
 
 st.sidebar.button("🚪 Logout", on_click=logout)
 
-menu = st.sidebar.selectbox(
-    "Menu",
-    ["Dashboard", "Clientes", "Serviços"]
-)
+menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "Serviços"])
 
 # ==================================================
 # DASHBOARD
@@ -174,15 +160,10 @@ menu = st.sidebar.selectbox(
 
 if menu == "Dashboard":
 
-    st.title("📊 Dashboard SaaS")
+    st.title("📊 Dashboard")
 
-    clientes = clientes_ref.get()
-    servicos = servicos_ref.get()
-
-    col1, col2 = st.columns(2)
-
-    col1.metric("Clientes", len(clientes))
-    col2.metric("Serviços", len(servicos))
+    st.metric("Clientes", len(clientes_ref.get()))
+    st.metric("Serviços", len(servicos_ref.get()))
 
 # ==================================================
 # CLIENTES
@@ -194,17 +175,13 @@ elif menu == "Clientes":
 
     nome = st.text_input("Nome")
 
-    if st.button("➕ Adicionar"):
+    if st.button("➕ Adicionar") and nome:
 
-        if nome:
+        clientes_ref.add({"nome": nome})
 
-            clientes_ref.add({
-                "nome": nome
-            })
+        st.success("Adicionado")
 
-            st.success("Cliente adicionado")
-
-            st.rerun()
+        st.rerun()
 
     st.divider()
 
@@ -212,18 +189,42 @@ elif menu == "Clientes":
 
         data = c.to_dict()
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2, col3 = st.columns([6, 2, 2])
 
         with col1:
             st.write(f"👤 {data.get('nome')}")
 
+        # EDITAR
         with col2:
+
+            if st.button("✏️ Editar", key="e"+c.id):
+
+                novo_nome = st.text_input(
+                    "Novo nome",
+                    value=data.get("nome"),
+                    key="edit_"+c.id
+                )
+
+                if st.button("Salvar", key="save"+c.id):
+
+                    clientes_ref.document(c.id).update({
+                        "nome": novo_nome
+                    })
+
+                    st.rerun()
+
+        # EXCLUIR COM CONFIRMAÇÃO
+        with col3:
 
             if st.button("🗑", key=c.id):
 
-                clientes_ref.document(c.id).delete()
+                st.warning("Tem certeza?")
 
-                st.rerun()
+                if st.button("Confirmar exclusão", key="del"+c.id):
+
+                    clientes_ref.document(c.id).delete()
+
+                    st.rerun()
 
 # ==================================================
 # SERVIÇOS
@@ -236,18 +237,16 @@ elif menu == "Serviços":
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
 
-    if st.button("➕ Salvar"):
+    if st.button("➕ Salvar") and cliente and servico:
 
-        if cliente and servico:
+        servicos_ref.add({
+            "cliente": cliente,
+            "servico": servico
+        })
 
-            servicos_ref.add({
-                "cliente": cliente,
-                "servico": servico
-            })
+        st.success("Salvo")
 
-            st.success("Salvo")
-
-            st.rerun()
+        st.rerun()
 
     st.divider()
 
@@ -255,15 +254,37 @@ elif menu == "Serviços":
 
         data = s.to_dict()
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2, col3 = st.columns([6, 2, 2])
 
         with col1:
             st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
 
         with col2:
 
+            if st.button("✏️", key="e"+s.id):
+
+                novo = st.text_input(
+                    "Editar serviço",
+                    value=data.get("servico"),
+                    key="se"+s.id
+                )
+
+                if st.button("Salvar", key="ss"+s.id):
+
+                    servicos_ref.document(s.id).update({
+                        "servico": novo
+                    })
+
+                    st.rerun()
+
+        with col3:
+
             if st.button("🗑", key=s.id):
 
-                servicos_ref.document(s.id).delete()
+                st.warning("Confirmar exclusão")
 
-                st.rerun()
+                if st.button("Sim", key="del"+s.id):
+
+                    servicos_ref.document(s.id).delete()
+
+                    st.rerun()
