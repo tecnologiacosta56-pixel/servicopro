@@ -13,10 +13,6 @@ st.set_page_config(
     page_icon="🚀"
 )
 
-# ==================================================
-# DEBUG VISUAL
-# ==================================================
-
 st.write("🚀 App iniciado")
 
 # ==================================================
@@ -70,7 +66,7 @@ except Exception as e:
     st.stop()
 
 # ==================================================
-# SESSION STATE
+# SESSION
 # ==================================================
 
 if "authenticated" not in st.session_state:
@@ -95,29 +91,24 @@ def login(email):
 
         st.write("🔍 Procurando usuário...")
 
-        users = list(
+        query = db.collection(
+            "usuarios"
+        ).where(
+            "email",
+            "==",
+            email
+        ).limit(1)
 
-            db.collection("usuarios")
-            .where(
-                "email",
-                "==",
-                email
-            )
-            .limit(1)
-            .stream()
+        docs = query.get()
 
-        )
+        st.write(f"📦 Usuários encontrados: {len(docs)}")
 
-        st.write(f"📦 Usuários encontrados: {len(users)}")
-
-        if len(users) == 0:
+        if len(docs) == 0:
             return False
 
-        user_doc = users[0]
+        user_doc = docs[0]
 
         usuario = user_doc.to_dict()
-
-        st.write("✅ Usuário localizado")
 
         st.session_state.uid = user_doc.id
 
@@ -168,28 +159,21 @@ if not st.session_state.authenticated:
 
     email = st.text_input("Email")
 
-    entrar = st.button("Entrar")
-
-    if entrar:
+    if st.button("Entrar"):
 
         sucesso = login(email)
 
-        st.write("📌 Estado sessão:")
         st.write(st.session_state)
 
         if sucesso:
 
-            st.success(
-                "✅ Login realizado"
-            )
+            st.success("✅ Login realizado")
 
             st.rerun()
 
         else:
 
-            st.error(
-                "❌ Usuário não encontrado"
-            )
+            st.error("❌ Usuário não encontrado")
 
     st.stop()
 
@@ -199,13 +183,11 @@ if not st.session_state.authenticated:
 
 empresa_id = st.session_state.empresa_id
 
-st.write(f"🏢 Empresa ID: {empresa_id}")
+st.write(f"🏢 Empresa: {empresa_id}")
 
 if not empresa_id:
 
-    st.error(
-        "❌ Empresa não encontrada"
-    )
+    st.error("❌ Empresa inválida")
 
     st.stop()
 
@@ -247,7 +229,9 @@ st.sidebar.button(
 )
 
 menu = st.sidebar.selectbox(
+
     "📌 Menu",
+
     [
         "📊 Dashboard",
         "👤 Clientes",
@@ -266,17 +250,11 @@ if menu == "📊 Dashboard":
 
     try:
 
-        clientes = list(
-            clientes_ref.stream()
-        )
+        clientes = clientes_ref.get()
 
-        servicos = list(
-            servicos_ref.stream()
-        )
+        servicos = servicos_ref.get()
 
-        st.success(
-            "✅ Dashboard carregado"
-        )
+        st.success("✅ Dashboard carregado")
 
         col1, col2, col3 = st.columns(3)
 
@@ -317,9 +295,7 @@ if menu == "📊 Dashboard":
 
     except Exception as e:
 
-        st.error(
-            f"❌ Erro dashboard: {e}"
-        )
+        st.error(f"❌ Erro dashboard: {e}")
 
 # ==================================================
 # CLIENTES
@@ -333,9 +309,7 @@ elif menu == "👤 Clientes":
         "Nome do cliente"
     )
 
-    if st.button(
-        "➕ Adicionar Cliente"
-    ):
+    if st.button("➕ Adicionar Cliente"):
 
         try:
 
@@ -343,17 +317,13 @@ elif menu == "👤 Clientes":
                 "nome": nome
             })
 
-            st.success(
-                "✅ Cliente adicionado"
-            )
+            st.success("✅ Cliente adicionado")
 
             st.rerun()
 
         except Exception as e:
 
-            st.error(
-                f"❌ Erro: {e}"
-            )
+            st.error(f"❌ Erro: {e}")
 
 # ==================================================
 # SERVIÇOS
@@ -363,17 +333,11 @@ elif menu == "🛠 Serviços":
 
     st.title("🛠 Serviços")
 
-    cliente = st.text_input(
-        "Cliente"
-    )
+    cliente = st.text_input("Cliente")
 
-    servico = st.text_input(
-        "Serviço"
-    )
+    servico = st.text_input("Serviço")
 
-    if st.button(
-        "➕ Salvar Serviço"
-    ):
+    if st.button("➕ Salvar Serviço"):
 
         try:
 
@@ -384,17 +348,13 @@ elif menu == "🛠 Serviços":
 
             })
 
-            st.success(
-                "✅ Serviço salvo"
-            )
+            st.success("✅ Serviço salvo")
 
             st.rerun()
 
         except Exception as e:
 
-            st.error(
-                f"❌ Erro: {e}"
-            )
+            st.error(f"❌ Erro: {e}")
 
 # ==================================================
 # PLANO
@@ -404,6 +364,4 @@ elif menu == "💳 Plano":
 
     st.title("💳 Plano SaaS")
 
-    st.success(
-        "✅ Sistema estabilizado"
-    )
+    st.success("✅ Sistema estabilizado")
