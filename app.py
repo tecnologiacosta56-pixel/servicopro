@@ -108,17 +108,29 @@ if not st.session_state["authenticated"]:
     st.title("🔐 Login ServiçoPro SaaS")
 
     email = st.text_input("Email")
-    password = st.text_input("Senha", type="password")
+
+    password = st.text_input(
+        "Senha",
+        type="password"
+    )
 
     if st.button("Entrar"):
 
-        if login(email, password):
+        sucesso = login(email, password)
 
-            st.success("Login realizado com sucesso!")
-            st.rerun()
+        if sucesso:
+
+            st.session_state["authenticated"] = True
+
+            st.success(
+                "Login realizado com sucesso!"
+            )
 
         else:
-            st.error("Credenciais inválidas")
+
+            st.error(
+                "Credenciais inválidas"
+            )
 
     st.stop()
 
