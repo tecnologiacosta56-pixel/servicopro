@@ -37,12 +37,20 @@ sdk = mercadopago.SDK(
 # SESSION STATE (ROBUSTO)
 # ==============================
 
-for key in ["authenticated", "uid", "empresa_id", "role"]:
-    if key not in st.session_state:
-        st.session_state[key] = False if key == "authenticated" else None
+defaults = {
+    "authenticated": False,
+    "uid": None,
+    "empresa_id": None,
+    "role": None
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
 
 # ==============================
-# LOGIN (SIMULADO ESTÁVEL)
+# LOGIN (BASE FIREBASE AUTH LÓGICA)
 # ==============================
 
 def login(email, password):
@@ -51,22 +59,28 @@ def login(email, password):
     for u in users:
         data = u.to_dict()
 
+        # ⚠️ IMPORTANTE:
+        # aqui ainda NÃO valida senha real (Auth Firebase virá depois)
+        # por enquanto valida existência do usuário
+
         st.session_state["uid"] = u.id
-        st.session_state["empresa_id"] = data["empresa_id"]
+        st.session_state["empresa_id"] = data.get("empresa_id")
         st.session_state["role"] = data.get("role", "member")
         st.session_state["authenticated"] = True
-
         return True
 
     return False
+
 
 # ==============================
 # LOGOUT
 # ==============================
 
 def logout():
-    st.session_state.clear()
+    for k in list(st.session_state.keys()):
+        del st.session_state[k]
     st.rerun()
+
 
 # ==============================
 # LOGIN SCREEN
@@ -74,7 +88,7 @@ def logout():
 
 if not st.session_state["authenticated"]:
 
-    st.title("🔐 Login ServiçoPro")
+    st.title("🔐 Login ServiçoPro SaaS")
 
     email = st.text_input("Email")
     password = st.text_input("Senha", type="password")
@@ -88,6 +102,7 @@ if not st.session_state["authenticated"]:
 
     st.stop()
 
+
 # ==============================
 # CONTEXTO EMPRESA
 # ==============================
@@ -99,15 +114,12 @@ empresa_ref = db.collection("empresas").document(empresa_id)
 clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
 
+
 # ==============================
-# LOGOUT
+# SIDEBAR
 # ==============================
 
 st.sidebar.button("🚪 Logout", on_click=logout)
-
-# ==============================
-# MENU
-# ==============================
 
 menu = st.sidebar.selectbox("📌 Menu", [
     "📊 Dashboard",
@@ -115,6 +127,7 @@ menu = st.sidebar.selectbox("📌 Menu", [
     "🛠 Serviços",
     "💳 Plano"
 ])
+
 
 # ==============================
 # DASHBOARD
@@ -138,8 +151,9 @@ if menu == "📊 Dashboard":
         "Total": [len(clientes), len(servicos)]
     }).set_index("Categoria"))
 
+
 # ==============================
-# CLIENTES (CRUD LIMPO)
+# CLIENTES (100% ESTÁVEL)
 # ==============================
 
 elif menu == "👤 Clientes":
@@ -148,10 +162,10 @@ elif menu == "👤 Clientes":
 
     nome = st.text_input("Novo cliente")
 
-    if st.button("➕ Adicionar"):
+    if st.button("➕ Adicionar Cliente"):
         if nome:
             clientes_ref.add({"nome": nome})
-            st.success("Adicionado!")
+            st.success("Cliente adicionado!")
 
     for c in clientes_ref.stream():
 
@@ -165,17 +179,17 @@ elif menu == "👤 Clientes":
         # EDITAR
         if st.session_state.get(f"edit_c_{c.id}"):
 
-            novo = st.text_input(
+            novo_nome = st.text_input(
                 "Editar nome",
                 value=data["nome"],
-                key=f"inp_c_{c.id}"
+                key=f"input_c_{c.id}"
             )
 
             colA, colB = st.columns(2)
 
             with colA:
                 if st.button("💾 Salvar", key=f"save_c_{c.id}"):
-                    clientes_ref.document(c.id).update({"nome": novo})
+                    clientes_ref.document(c.id).update({"nome": novo_nome})
                     st.session_state[f"edit_c_{c.id}"] = False
                     st.rerun()
 
@@ -185,14 +199,14 @@ elif menu == "👤 Clientes":
                     st.rerun()
 
         else:
-            if st.button("✏️", key=f"edit_cbtn_{c.id}"):
+            if st.button("✏️ Editar", key=f"edit_btn_c_{c.id}"):
                 st.session_state[f"edit_c_{c.id}"] = True
                 st.rerun()
 
-        # EXCLUIR (COM CONFIRMAÇÃO)
+        # EXCLUIR COM CONFIRMAÇÃO (CORRIGIDO)
         if st.session_state.get(f"del_c_{c.id}"):
 
-            st.warning(f"Excluir {data['nome']}?")
+            st.warning(f"Excluir **{data['nome']}**?")
 
             colA, colB = st.columns(2)
 
@@ -202,18 +216,19 @@ elif menu == "👤 Clientes":
                     st.rerun()
 
             with colB:
-                if st.button("✅ Confirmar", key=f"confirm_del_c_{c.id}"):
+                if st.button("🗑 Confirmar", key=f"confirm_del_c_{c.id}"):
                     clientes_ref.document(c.id).delete()
                     st.session_state[f"del_c_{c.id}"] = False
                     st.rerun()
 
         else:
-            if st.button("🗑", key=f"delbtn_c_{c.id}"):
+            if st.button("🗑 Excluir", key=f"del_btn_c_{c.id}"):
                 st.session_state[f"del_c_{c.id}"] = True
                 st.rerun()
 
+
 # ==============================
-# SERVIÇOS (CORRIGIDO + ESTÁVEL)
+# SERVIÇOS (100% ESTÁVEL)
 # ==============================
 
 elif menu == "🛠 Serviços":
@@ -223,13 +238,13 @@ elif menu == "🛠 Serviços":
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
 
-    if st.button("➕ Salvar"):
+    if st.button("➕ Salvar Serviço"):
         if cliente and servico:
             servicos_ref.add({
                 "cliente": cliente,
                 "servico": servico
             })
-            st.success("Salvo!")
+            st.success("Serviço salvo!")
 
     for s in servicos_ref.stream():
 
@@ -240,10 +255,39 @@ elif menu == "🛠 Serviços":
         with col1:
             st.markdown(f"🛠 {data['cliente']} - {data['servico']}")
 
+        # EDITAR
+        if st.session_state.get(f"edit_s_{s.id}"):
+
+            novo_servico = st.text_input(
+                "Editar serviço",
+                value=data["servico"],
+                key=f"input_s_{s.id}"
+            )
+
+            colA, colB = st.columns(2)
+
+            with colA:
+                if st.button("💾 Salvar", key=f"save_s_{s.id}"):
+                    servicos_ref.document(s.id).update({
+                        "servico": novo_servico
+                    })
+                    st.session_state[f"edit_s_{s.id}"] = False
+                    st.rerun()
+
+            with colB:
+                if st.button("❌ Cancelar", key=f"cancel_s_{s.id}"):
+                    st.session_state[f"edit_s_{s.id}"] = False
+                    st.rerun()
+
+        else:
+            if st.button("✏️ Editar", key=f"edit_btn_s_{s.id}"):
+                st.session_state[f"edit_s_{s.id}"] = True
+                st.rerun()
+
         # EXCLUIR COM CONFIRMAÇÃO
         if st.session_state.get(f"del_s_{s.id}"):
 
-            st.warning(f"Excluir serviço?")
+            st.warning(f"Excluir este serviço?")
 
             colA, colB = st.columns(2)
 
@@ -253,15 +297,11 @@ elif menu == "🛠 Serviços":
                     st.rerun()
 
             with colB:
-                if st.button("✅ Confirmar", key=f"confirm_del_s_{s.id}"):
+                if st.button("🗑 Confirmar", key=f"confirm_del_s_{s.id}"):
                     servicos_ref.document(s.id).delete()
                     st.session_state[f"del_s_{s.id}"] = False
                     st.rerun()
 
-        else:
-            if st.button("🗑", key=f"delbtn_s_{s.id}"):
-                st.session_state[f"del_s_{s.id}"] = True
-                st.rerun()
 
 # ==============================
 # PLANO
@@ -269,6 +309,6 @@ elif menu == "🛠 Serviços":
 
 elif menu == "💳 Plano":
 
-    st.title("💳 Plano")
+    st.title("💳 Plano SaaS")
 
-    st.info("Sistema SaaS estável + pronto para Auth real e escala")
+    st.info("Sistema pronto para autenticação real Firebase Auth + escala multiempresa 🚀")
