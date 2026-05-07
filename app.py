@@ -67,43 +67,51 @@ if "role" not in st.session_state:
 
 def login(email):
 
-    usuarios_ref = db.collection("usuarios")
+    try:
 
-    query = usuarios_ref.where(
-        "email",
-        "==",
-        email
-    ).limit(1).stream()
+        users = db.collection(
+            "usuarios"
+        ).where(
+            "email",
+            "==",
+            email
+        ).limit(1).stream()
 
-    usuario = None
-    uid = None
+        usuario = None
+        uid = None
 
-    for doc in query:
+        for u in users:
 
-        usuario = doc.to_dict()
-        uid = doc.id
+            usuario = u.to_dict()
+            uid = u.id
 
-    if usuario:
+        if usuario:
 
-        if "empresa_id" not in usuario:
-            return False
+            if "empresa_id" not in usuario:
+                return False
 
-        st.session_state.authenticated = True
+            st.session_state.uid = uid
 
-        st.session_state.uid = uid
+            st.session_state.empresa_id = usuario[
+                "empresa_id"
+            ]
 
-        st.session_state.empresa_id = usuario.get(
-            "empresa_id"
-        )
+            st.session_state.role = usuario.get(
+                "role",
+                "member"
+            )
 
-        st.session_state.role = usuario.get(
-            "role",
-            "member"
-        )
+            st.session_state.authenticated = True
 
-        return True
+            return True
 
-    return False
+        return False
+
+    except Exception as e:
+
+        st.error(f"Erro login: {e}")
+
+        return False
 
 # ==================================================
 # LOGOUT
@@ -112,8 +120,11 @@ def login(email):
 def logout():
 
     st.session_state.authenticated = False
+
     st.session_state.uid = None
+
     st.session_state.empresa_id = None
+
     st.session_state.role = None
 
     st.rerun()
@@ -126,14 +137,11 @@ if not st.session_state.authenticated:
 
     st.title("🔐 Login ServiçoPro SaaS")
 
-    st.info(
-        "Sistema em modo MVP.\n"
-        "Digite o email cadastrado no Firestore."
-    )
-
     email = st.text_input("Email")
 
-    if st.button("Entrar"):
+    entrar = st.button("Entrar")
+
+    if entrar:
 
         sucesso = login(email)
 
@@ -154,7 +162,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ==================================================
-# CONTEXTO EMPRESA
+# VALIDA EMPRESA
 # ==================================================
 
 empresa_id = st.session_state.empresa_id
@@ -166,6 +174,10 @@ if not empresa_id:
     )
 
     st.stop()
+
+# ==================================================
+# REFERÊNCIAS FIRESTORE
+# ==================================================
 
 empresa_ref = db.collection(
     "empresas"
@@ -218,11 +230,11 @@ if menu == "📊 Dashboard":
 
     st.title("📊 Dashboard SaaS")
 
-    clientes_docs = list(
+    clientes = list(
         clientes_ref.stream()
     )
 
-    servicos_docs = list(
+    servicos = list(
         servicos_ref.stream()
     )
 
@@ -235,23 +247,26 @@ if menu == "📊 Dashboard":
 
     col2.metric(
         "Clientes",
-        len(clientes_docs)
+        len(clientes)
     )
 
     col3.metric(
         "Serviços",
-        len(servicos_docs)
+        len(servicos)
     )
 
     chart_data = pd.DataFrame({
+
         "Categoria": [
             "Clientes",
             "Serviços"
         ],
+
         "Total": [
-            len(clientes_docs),
-            len(servicos_docs)
+            len(clientes),
+            len(servicos)
         ]
+
     })
 
     st.bar_chart(
@@ -314,12 +329,12 @@ elif menu == "👤 Clientes":
 
             st.write(
                 f"""
-                👤 {data.get('nome', '')}
+👤 {data.get('nome', '')}
 
-                📞 {data.get('telefone', '')}
+📞 {data.get('telefone', '')}
 
-                📍 {data.get('endereco', '')}
-                """
+📍 {data.get('endereco', '')}
+"""
             )
 
         with col2:
@@ -399,14 +414,14 @@ elif menu == "🛠 Serviços":
 
             st.write(
                 f"""
-                🛠 {data.get('cliente', '')}
+🛠 {data.get('cliente', '')}
 
-                🔧 {data.get('servico', '')}
+🔧 {data.get('servico', '')}
 
-                💰 R$ {data.get('valor', '')}
+💰 R$ {data.get('valor', '')}
 
-                📌 {data.get('status', '')}
-                """
+📌 {data.get('status', '')}
+"""
             )
 
         with col2:
@@ -435,11 +450,14 @@ elif menu == "💳 Plano":
     )
 
     st.info(
-        "Próximas fases:\n\n"
-        "✅ Firebase Auth real\n"
-        "✅ Mercado Pago recorrente\n"
-        "✅ Multiusuários\n"
-        "✅ Painel Admin\n"
-        "✅ Multiempresa SaaS\n"
-        "✅ Automação inteligente"
+        """
+Próximas fases:
+
+✅ Firebase Auth real
+✅ Mercado Pago recorrente
+✅ Multiusuários
+✅ Painel Admin
+✅ Multiempresa SaaS
+✅ Automação inteligente
+"""
     )
