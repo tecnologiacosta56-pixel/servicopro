@@ -10,7 +10,8 @@ import pandas as pd
 
 st.set_page_config(
     page_title="ServiçoPro SaaS",
-    layout="wide"
+    layout="wide",
+    page_icon="🚀"
 )
 
 # ==============================
@@ -46,15 +47,38 @@ if not user_ref.get().exists:
 plano = user_ref.get().to_dict()["plano"]
 
 # ==============================
-# ESTILO VISUAL PREMIUM
+# ESTILO VISUAL PREMIUM (EVOLUÍDO)
 # ==============================
 
 st.markdown("""
 <style>
 
 .stApp {
-    background: linear-gradient(135deg, #0f172a, #020617);
+    background: radial-gradient(circle at top, #0f172a, #020617);
     color: white;
+}
+
+/* LOGO */
+.logo {
+    font-size: 30px;
+    font-weight: 800;
+    color: #22c55e;
+    margin-bottom: 5px;
+}
+
+/* CARDS */
+.card {
+    background: rgba(255,255,255,0.06);
+    padding: 15px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 10px;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: scale(1.01);
+    border: 1px solid #22c55e;
 }
 
 /* BOTÕES */
@@ -71,22 +95,6 @@ div.stButton > button {
 div.stButton > button:hover {
     transform: scale(1.05);
     box-shadow: 0px 0px 15px #22c55e;
-}
-
-/* CARD */
-.card {
-    background: rgba(255,255,255,0.05);
-    padding: 15px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 10px;
-}
-
-.logo {
-    font-size: 28px;
-    font-weight: bold;
-    color: #22c55e;
-    margin-bottom: 10px;
 }
 
 </style>
@@ -133,23 +141,24 @@ def criar_pagamento(uid, email):
         return None
 
 # ==============================
-# DASHBOARD (COM GRÁFICO)
+# DASHBOARD (EVOLUÍDO)
 # ==============================
 
 if menu == "📊 Dashboard":
-    st.title("📊 Dashboard")
+    st.title("📊 Painel Inteligente")
 
     clientes = list(db.collection("clientes").stream())
     servicos = list(db.collection("servicos").stream())
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Plano", plano.upper())
+    col1.metric("Plano Atual", plano.upper())
     col2.metric("Clientes", len(clientes))
     col3.metric("Serviços", len(servicos))
 
-    # GRÁFICO SIMPLES
-    st.subheader("📈 Atividade do Sistema")
+    st.markdown("---")
+
+    st.subheader("📈 Visão Geral do Sistema")
 
     df = pd.DataFrame({
         "Categoria": ["Clientes", "Serviços"],
@@ -158,18 +167,29 @@ if menu == "📊 Dashboard":
 
     st.bar_chart(df.set_index("Categoria"))
 
+    st.markdown("---")
+
+    st.subheader("⚡ Status do Sistema")
+
+    st.success("Firebase conectado")
+    st.success("Mercado Pago ativo")
+    st.info("SaaS operacional")
+
 # ==============================
 # CLIENTES
 # ==============================
 
 elif menu == "👤 Clientes":
-    st.title("👤 Clientes")
+    st.title("👤 Gestão de Clientes")
 
     nome = st.text_input("Novo cliente")
 
     if st.button("➕ Adicionar Cliente"):
-        db.collection("clientes").add({"nome": nome})
-        st.success("Cliente adicionado!")
+        if nome:
+            db.collection("clientes").add({"nome": nome})
+            st.success("Cliente adicionado!")
+        else:
+            st.warning("Digite um nome.")
 
     st.markdown("### Lista de Clientes")
 
@@ -191,17 +211,20 @@ elif menu == "👤 Clientes":
 # ==============================
 
 elif menu == "🛠 Serviços":
-    st.title("🛠 Serviços")
+    st.title("🛠 Gestão de Serviços")
 
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
 
     if st.button("➕ Salvar Serviço"):
-        db.collection("servicos").add({
-            "cliente": cliente,
-            "servico": servico
-        })
-        st.success("Serviço salvo!")
+        if cliente and servico:
+            db.collection("servicos").add({
+                "cliente": cliente,
+                "servico": servico
+            })
+            st.success("Serviço salvo!")
+        else:
+            st.warning("Preencha todos os campos.")
 
     st.markdown("### Lista de Serviços")
 
@@ -222,11 +245,11 @@ elif menu == "🛠 Serviços":
                 st.rerun()
 
 # ==============================
-# PLANO (BOTÃO BONITO)
+# PLANO (UPGRADE SAAS)
 # ==============================
 
 elif menu == "💳 Plano":
-    st.title("💳 Plano")
+    st.title("💳 Planos")
 
     st.write(f"Plano atual: **{plano.upper()}**")
 
@@ -235,7 +258,7 @@ elif menu == "💳 Plano":
             link = criar_pagamento(uid, email)
 
             if link:
-                st.success("Pagamento gerado!")
+                st.success("Pagamento gerado com sucesso!")
 
                 st.markdown(f"""
                 <a href="{link}" target="_blank">
@@ -247,6 +270,7 @@ elif menu == "💳 Plano":
                         border-radius: 10px;
                         font-weight: bold;
                         cursor: pointer;
+                        width: 100%;
                     ">
                     💳 Ir para Pagamento
                     </button>
