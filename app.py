@@ -18,13 +18,15 @@ st.set_page_config(
 # FIREBASE INIT (BLINDADO)
 # ==============================
 
-if not firebase_admin._apps:
+try:
+    firebase_admin.get_app()
+
+except ValueError:
 
     firebase_config = st.secrets["firebase"]
 
     firebase_dict = dict(firebase_config)
 
-    # CORREÇÃO DEFINITIVA DA PRIVATE KEY
     firebase_dict["private_key"] = firebase_dict[
         "private_key"
     ].replace("\\n", "\n")
