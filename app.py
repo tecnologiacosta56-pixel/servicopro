@@ -35,7 +35,7 @@ sdk = mercadopago.SDK(
 )
 
 # ==============================
-# USUÁRIO (BASE)
+# USUÁRIO BASE
 # ==============================
 
 uid = "user_123"
@@ -48,7 +48,7 @@ if not user_ref.get().exists:
 plano = user_ref.get().to_dict()["plano"]
 
 # ==============================
-# ESTILO VISUAL
+# ESTILO
 # ==============================
 
 st.markdown("""
@@ -90,7 +90,7 @@ div.stButton > button:hover {
 # ==============================
 
 st.sidebar.image("logo.png", use_container_width=True)
-st.caption("Sistema inteligente de gestão e automação")
+st.caption("Sistema inteligente de gestão e automação SaaS")
 
 # ==============================
 # MENU
@@ -151,7 +151,7 @@ if menu == "📊 Dashboard":
     st.info("SaaS operacional")
 
 # ==============================
-# CLIENTES (PADRÃO FINAL)
+# CLIENTES
 # ==============================
 
 elif menu == "👤 Clientes":
@@ -174,60 +174,60 @@ elif menu == "👤 Clientes":
         with col1:
             st.markdown(f"👤 **{data['nome']}**")
 
-        # EDITAR
-        if st.session_state.get(f"edit_{c.id}"):
+        # ================= EDITAR =================
+        if st.session_state.get(f"edit_c_{c.id}"):
 
             novo_nome = st.text_input(
                 "Editar nome",
                 value=data["nome"],
-                key=f"input_{c.id}"
+                key=f"input_c_{c.id}"
             )
 
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("💾 Salvar", key=f"save_{c.id}"):
+                if st.button("💾 Salvar", key=f"save_c_{c.id}"):
                     db.collection("clientes").document(c.id).update({
                         "nome": novo_nome
                     })
-                    st.session_state[f"edit_{c.id}"] = False
+                    st.session_state[f"edit_c_{c.id}"] = False
                     st.success("Atualizado!")
                     st.rerun()
 
             with colB:
-                if st.button("❌ Cancelar", key=f"cancel_{c.id}"):
-                    st.session_state[f"edit_{c.id}"] = False
+                if st.button("❌ Cancelar", key=f"cancel_c_{c.id}"):
+                    st.session_state[f"edit_c_{c.id}"] = False
                     st.rerun()
 
         else:
-            if st.button("✏️ Editar", key=f"edit_btn_{c.id}"):
-                st.session_state[f"edit_{c.id}"] = True
+            if st.button("✏️ Editar", key=f"edit_btn_c_{c.id}"):
+                st.session_state[f"edit_c_{c.id}"] = True
                 st.rerun()
 
-        # EXCLUIR COM CONFIRMAÇÃO
-        if st.button("🗑 Excluir", key=f"del_{c.id}"):
-            st.session_state[f"confirm_{c.id}"] = True
+        # ================= EXCLUIR =================
+        if st.button("🗑 Excluir", key=f"del_c_{c.id}"):
+            st.session_state[f"confirm_c_{c.id}"] = True
 
-        if st.session_state.get(f"confirm_{c.id}"):
+        if st.session_state.get(f"confirm_c_{c.id}"):
 
             st.warning(f"Excluir **{data['nome']}**?")
 
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("❌ Cancelar", key=f"cancel_del_{c.id}"):
-                    st.session_state[f"confirm_{c.id}"] = False
+                if st.button("❌ Cancelar", key=f"cancel_del_c_{c.id}"):
+                    st.session_state[f"confirm_c_{c.id}"] = False
                     st.rerun()
 
             with colB:
-                if st.button("✅ Confirmar", key=f"confirm_del_{c.id}"):
+                if st.button("✅ Confirmar", key=f"confirm_del_c_{c.id}"):
                     db.collection("clientes").document(c.id).delete()
-                    st.session_state[f"confirm_{c.id}"] = False
+                    st.session_state[f"confirm_c_{c.id}"] = False
                     st.success("Cliente excluído!")
                     st.rerun()
 
 # ==============================
-# SERVIÇOS (PADRÃO FINAL)
+# SERVIÇOS (CORRIGIDO TOTAL)
 # ==============================
 
 elif menu == "🛠 Serviços":
@@ -254,22 +254,53 @@ elif menu == "🛠 Serviços":
         with col1:
             st.markdown(f"🛠 **{data['cliente']} - {data['servico']}**")
 
+        # ================= EDITAR =================
+        if st.session_state.get(f"edit_s_{s.id}"):
+
+            novo_servico = st.text_input(
+                "Editar serviço",
+                value=data["servico"],
+                key=f"input_s_{s.id}"
+            )
+
+            colA, colB = st.columns(2)
+
+            with colA:
+                if st.button("💾 Salvar", key=f"save_s_{s.id}"):
+                    db.collection("servicos").document(s.id).update({
+                        "servico": novo_servico
+                    })
+                    st.session_state[f"edit_s_{s.id}"] = False
+                    st.success("Atualizado!")
+                    st.rerun()
+
+            with colB:
+                if st.button("❌ Cancelar", key=f"cancel_s_{s.id}"):
+                    st.session_state[f"edit_s_{s.id}"] = False
+                    st.rerun()
+
+        else:
+            if st.button("✏️ Editar", key=f"edit_btn_s_{s.id}"):
+                st.session_state[f"edit_s_{s.id}"] = True
+                st.rerun()
+
+        # ================= EXCLUIR =================
         if st.button("🗑 Excluir", key=f"del_s_{s.id}"):
             st.session_state[f"confirm_s_{s.id}"] = True
 
         if st.session_state.get(f"confirm_s_{s.id}"):
 
-            st.warning(f"Excluir serviço de **{data['cliente']}**?")
+            st.warning(f"Excluir serviço de **{data['cliente']} - {data['servico']}**?")
 
             colA, colB = st.columns(2)
 
             with colA:
-                if st.button("❌ Cancelar", key=f"cancel_s_{s.id}"):
+                if st.button("❌ Cancelar", key=f"cancel_del_s_{s.id}"):
                     st.session_state[f"confirm_s_{s.id}"] = False
                     st.rerun()
 
             with colB:
-                if st.button("✅ Confirmar", key=f"confirm_s_{s.id}"):
+                if st.button("✅ Confirmar", key=f"confirm_del_s_{s.id}"):
                     db.collection("servicos").document(s.id).delete()
                     st.session_state[f"confirm_s_{s.id}"] = False
                     st.success("Serviço excluído!")
