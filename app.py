@@ -200,27 +200,114 @@ elif menu == "Serviços":
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
 
+    # ==================================================
+    # CREATE
+    # ==================================================
+
     if st.button("➕ Salvar") and cliente and servico:
+
         servicos_ref.add({
             "cliente": cliente,
             "servico": servico
         })
-        st.success("Salvo")
+
+        st.success("Serviço salvo")
+
         st.rerun()
 
     st.divider()
 
+    # ==================================================
+    # LIST
+    # ==================================================
+
     for s in servicos_ref.get():
 
         data = s.to_dict()
+        sid = s.id
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2, col3 = st.columns([7, 1, 1])
 
         with col1:
             st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
 
+        # ==================================================
+        # EDIT BUTTON
+        # ==================================================
+
         with col2:
 
-            if st.button("🗑", key=s.id):
-                servicos_ref.document(s.id).delete()
-                st.rerun()
+            if st.button("✏️", key="edit_"+sid):
+                st.session_state["edit_service_"+sid] = True
+
+        # ==================================================
+        # EDIT MODE
+        # ==================================================
+
+        if st.session_state.get("edit_service_"+sid):
+
+            novo_servico = st.text_input(
+                "Editar serviço",
+                value=data.get("servico"),
+                key="input_service_"+sid
+            )
+
+            col_a, col_b = st.columns(2)
+
+            with col_a:
+
+                if st.button("Salvar", key="save_service_"+sid):
+
+                    servicos_ref.document(sid).update({
+                        "servico": novo_servico
+                    })
+
+                    st.session_state["edit_service_"+sid] = False
+
+                    st.rerun()
+
+            with col_b:
+
+                if st.button("Cancelar", key="cancel_service_"+sid):
+
+                    st.session_state["edit_service_"+sid] = False
+
+                    st.rerun()
+
+        # ==================================================
+        # DELETE
+        # ==================================================
+
+        with col3:
+
+            if st.button("🗑", key="del_service_"+sid):
+
+                st.session_state["delete_service_"+sid] = True
+
+        # ==================================================
+        # CONFIRM DELETE
+        # ==================================================
+
+        if st.session_state.get("delete_service_"+sid):
+
+            st.warning("Confirma exclusão deste serviço?")
+
+            c1, c2 = st.columns(2)
+
+            with c1:
+
+                if st.button("Sim", key="yes_del_"+sid):
+
+                    servicos_ref.document(sid).delete()
+
+                    st.session_state["delete_service_"+sid] = False
+
+                    st.rerun()
+
+            with c2:
+
+                if st.button("Cancelar", key="no_del_"+sid):
+
+                    st.session_state["delete_service_"+sid] = False
+
+                    st.rerun()
