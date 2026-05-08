@@ -68,12 +68,6 @@ if "auth" not in st.session_state:
 if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
-if "delete_client" not in st.session_state:
-    st.session_state.delete_client = None
-
-if "delete_service" not in st.session_state:
-    st.session_state.delete_service = None
-
 # ==================================================
 # LOGIN
 # ==================================================
@@ -87,8 +81,14 @@ def login():
 
     user = doc.to_dict()
 
+    empresa = user.get("empresa_id")
+
+    if not empresa:
+        st.error("empresa_id não encontrado")
+        return False
+
     st.session_state.auth = True
-    st.session_state.empresa_id = user.get("empresa_id")
+    st.session_state.empresa_id = empresa
 
     return True
 
@@ -130,13 +130,15 @@ clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
 
 # ==================================================
-# SIDEBAR LOGO (SEGURA)
+# SIDEBAR (LOGO SEGURA)
 # ==================================================
 
 if os.path.exists("assets/logo.png"):
     st.sidebar.image("assets/logo.png", width=160)
 else:
-    st.sidebar.markdown("## 🚀 ServiçoPro")
+    st.sidebar.markdown("🚀 ServiçoPro")
+
+st.sidebar.title("ServiçoPro")
 
 st.sidebar.write(f"Empresa: {empresa_id}")
 
@@ -167,6 +169,7 @@ elif menu == "Clientes":
 
     if st.button("➕ Adicionar") and nome:
         clientes_ref.add({"nome": nome})
+        st.success("Salvo")
         st.rerun()
 
     st.divider()
@@ -174,60 +177,17 @@ elif menu == "Clientes":
     for c in clientes_ref.get():
 
         data = c.to_dict()
-        cid = c.id
 
-        col1, col2, col3 = st.columns([6, 2, 2])
+        col1, col2 = st.columns([8, 2])
 
         with col1:
             st.write(f"👤 {data.get('nome')}")
 
-        # EDITAR
         with col2:
 
-            if st.button("✏️", key="ec"+cid):
-                st.session_state["edit_c_"+cid] = True
-
-            if st.session_state.get("edit_c_"+cid):
-
-                novo = st.text_input(
-                    "Editar cliente",
-                    value=data.get("nome"),
-                    key="ic_"+cid
-                )
-
-                if st.button("Salvar", key="sc_"+cid):
-
-                    clientes_ref.document(cid).update({"nome": novo})
-
-                    st.session_state["edit_c_"+cid] = False
-                    st.rerun()
-
-                if st.button("Cancelar", key="cc_"+cid):
-
-                    st.session_state["edit_c_"+cid] = False
-                    st.rerun()
-
-        # EXCLUIR
-        with col3:
-
-            if st.button("🗑", key="dc"+cid):
-                st.session_state.delete_client = cid
-
-    # CONFIRMAÇÃO CLIENTE
-    if st.session_state.delete_client:
-
-        st.warning("Excluir cliente?")
-
-        c1, c2 = st.columns(2)
-
-        if c1.button("Sim"):
-            clientes_ref.document(st.session_state.delete_client).delete()
-            st.session_state.delete_client = None
-            st.rerun()
-
-        if c2.button("Cancelar"):
-            st.session_state.delete_client = None
-            st.rerun()
+            if st.button("🗑", key=c.id):
+                clientes_ref.document(c.id).delete()
+                st.rerun()
 
 # ==================================================
 # SERVIÇOS
@@ -245,6 +205,7 @@ elif menu == "Serviços":
             "cliente": cliente,
             "servico": servico
         })
+        st.success("Salvo")
         st.rerun()
 
     st.divider()
@@ -252,59 +213,14 @@ elif menu == "Serviços":
     for s in servicos_ref.get():
 
         data = s.to_dict()
-        sid = s.id
 
-        col1, col2, col3 = st.columns([6, 2, 2])
+        col1, col2 = st.columns([8, 2])
 
         with col1:
             st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
 
-        # EDITAR SERVIÇO
         with col2:
 
-            if st.button("✏️", key="es"+sid):
-                st.session_state["edit_s_"+sid] = True
-
-            if st.session_state.get("edit_s_"+sid):
-
-                novo = st.text_input(
-                    "Editar serviço",
-                    value=data.get("servico"),
-                    key="is_"+sid
-                )
-
-                if st.button("Salvar", key="ss_"+sid):
-
-                    servicos_ref.document(sid).update({
-                        "servico": novo
-                    })
-
-                    st.session_state["edit_s_"+sid] = False
-                    st.rerun()
-
-                if st.button("Cancelar", key="cs_"+sid):
-
-                    st.session_state["edit_s_"+sid] = False
-                    st.rerun()
-
-        # EXCLUIR SERVIÇO
-        with col3:
-
-            if st.button("🗑", key="ds"+sid):
-                st.session_state.delete_service = sid
-
-    # CONFIRMAÇÃO SERVIÇO
-    if st.session_state.delete_service:
-
-        st.warning("Excluir serviço?")
-
-        s1, s2 = st.columns(2)
-
-        if s1.button("Sim"):
-            servicos_ref.document(st.session_state.delete_service).delete()
-            st.session_state.delete_service = None
-            st.rerun()
-
-        if s2.button("Cancelar"):
-            st.session_state.delete_service = None
-            st.rerun()
+            if st.button("🗑", key=s.id):
+                servicos_ref.document(s.id).delete()
+                st.rerun()
