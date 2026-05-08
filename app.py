@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ==================================================
-# CSS
+# CSS (UI SaaS LIMPA)
 # ==================================================
 
 st.markdown("""
@@ -25,6 +25,7 @@ div.stButton > button {
     color: white;
     border-radius: 10px;
     font-weight: bold;
+    border: none;
 }
 
 section[data-testid="stSidebar"] {
@@ -36,7 +37,7 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 # ==================================================
-# FIREBASE
+# FIREBASE INIT
 # ==================================================
 
 try:
@@ -59,7 +60,7 @@ except ValueError:
 db = firestore.client()
 
 # ==================================================
-# STATE
+# SESSION STATE
 # ==================================================
 
 if "auth" not in st.session_state:
@@ -69,7 +70,7 @@ if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
 # ==================================================
-# LOGIN
+# LOGIN FIXO (user123)
 # ==================================================
 
 def login():
@@ -84,7 +85,6 @@ def login():
     empresa = user.get("empresa_id")
 
     if not empresa:
-        st.error("empresa_id não encontrado")
         return False
 
     st.session_state.auth = True
@@ -119,7 +119,7 @@ if not st.session_state.auth:
     st.stop()
 
 # ==================================================
-# EMPRESA
+# CONTEXTO EMPRESA
 # ==================================================
 
 empresa_id = st.session_state.empresa_id
@@ -144,18 +144,67 @@ st.sidebar.write(f"Empresa: {empresa_id}")
 
 st.sidebar.button("🚪 Logout", on_click=logout)
 
-menu = st.sidebar.selectbox("Menu", ["Dashboard", "Clientes", "Serviços"])
+menu = st.sidebar.selectbox(
+    "Menu",
+    ["Dashboard", "Clientes", "Serviços"]
+)
 
 # ==================================================
-# DASHBOARD
+# DASHBOARD (ESTILO STRIPE)
 # ==================================================
 
 if menu == "Dashboard":
 
     st.title("📊 Dashboard")
 
-    st.metric("Clientes", len(clientes_ref.get()))
-    st.metric("Serviços", len(servicos_ref.get()))
+    clientes = list(clientes_ref.get())
+    servicos = list(servicos_ref.get())
+
+    total_clientes = len(clientes)
+    total_servicos = len(servicos)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("### 👤 Clientes")
+        st.metric("Total", total_clientes)
+
+    with col2:
+        st.markdown("### 🛠 Serviços")
+        st.metric("Total", total_servicos)
+
+    with col3:
+        st.markdown("### 🚀 Empresa")
+        st.metric("ID", empresa_id)
+
+    st.divider()
+
+    st.subheader("📈 Visão geral")
+
+    colA, colB = st.columns(2)
+
+    with colA:
+        st.markdown("#### Crescimento")
+        st.progress(min(total_clientes / 10, 1.0))
+        st.caption("Meta: 10 clientes")
+
+    with colB:
+        st.markdown("#### Operação")
+        st.progress(min(total_servicos / 20, 1.0))
+        st.caption("Meta: 20 serviços")
+
+    st.divider()
+
+    st.subheader("🧠 Insights")
+
+    if total_clientes == 0:
+        st.info("Nenhum cliente ainda.")
+
+    elif total_clientes < 5:
+        st.warning("Base inicial pequena.")
+
+    else:
+        st.success("Base ativa 🚀")
 
 # ==================================================
 # CLIENTES
@@ -169,7 +218,6 @@ elif menu == "Clientes":
 
     if st.button("➕ Adicionar") and nome:
         clientes_ref.add({"nome": nome})
-        st.success("Salvo")
         st.rerun()
 
     st.divider()
@@ -184,7 +232,6 @@ elif menu == "Clientes":
             st.write(f"👤 {data.get('nome')}")
 
         with col2:
-
             if st.button("🗑", key=c.id):
                 clientes_ref.document(c.id).delete()
                 st.rerun()
@@ -200,114 +247,25 @@ elif menu == "Serviços":
     cliente = st.text_input("Cliente")
     servico = st.text_input("Serviço")
 
-    # ==================================================
-    # CREATE
-    # ==================================================
-
     if st.button("➕ Salvar") and cliente and servico:
-
         servicos_ref.add({
             "cliente": cliente,
             "servico": servico
         })
-
-        st.success("Serviço salvo")
-
         st.rerun()
 
     st.divider()
 
-    # ==================================================
-    # LIST
-    # ==================================================
-
     for s in servicos_ref.get():
 
         data = s.to_dict()
-        sid = s.id
 
-        col1, col2, col3 = st.columns([7, 1, 1])
+        col1, col2 = st.columns([8, 2])
 
         with col1:
             st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
 
-        # ==================================================
-        # EDIT BUTTON
-        # ==================================================
-
         with col2:
-
-            if st.button("✏️", key="edit_"+sid):
-                st.session_state["edit_service_"+sid] = True
-
-        # ==================================================
-        # EDIT MODE
-        # ==================================================
-
-        if st.session_state.get("edit_service_"+sid):
-
-            novo_servico = st.text_input(
-                "Editar serviço",
-                value=data.get("servico"),
-                key="input_service_"+sid
-            )
-
-            col_a, col_b = st.columns(2)
-
-            with col_a:
-
-                if st.button("Salvar", key="save_service_"+sid):
-
-                    servicos_ref.document(sid).update({
-                        "servico": novo_servico
-                    })
-
-                    st.session_state["edit_service_"+sid] = False
-
-                    st.rerun()
-
-            with col_b:
-
-                if st.button("Cancelar", key="cancel_service_"+sid):
-
-                    st.session_state["edit_service_"+sid] = False
-
-                    st.rerun()
-
-        # ==================================================
-        # DELETE
-        # ==================================================
-
-        with col3:
-
-            if st.button("🗑", key="del_service_"+sid):
-
-                st.session_state["delete_service_"+sid] = True
-
-        # ==================================================
-        # CONFIRM DELETE
-        # ==================================================
-
-        if st.session_state.get("delete_service_"+sid):
-
-            st.warning("Confirma exclusão deste serviço?")
-
-            c1, c2 = st.columns(2)
-
-            with c1:
-
-                if st.button("Sim", key="yes_del_"+sid):
-
-                    servicos_ref.document(sid).delete()
-
-                    st.session_state["delete_service_"+sid] = False
-
-                    st.rerun()
-
-            with c2:
-
-                if st.button("Cancelar", key="no_del_"+sid):
-
-                    st.session_state["delete_service_"+sid] = False
-
-                    st.rerun()
+            if st.button("🗑", key=s.id):
+                servicos_ref.document(s.id).delete()
+                st.rerun()
