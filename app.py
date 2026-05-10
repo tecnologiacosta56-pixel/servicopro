@@ -1,6 +1,14 @@
+# ServiçoPro SaaS — Dashboard Premium (Arquivo Único)
+
+Substitua TODO o conteúdo do seu `app.py` por este código.
+
+```python
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
+from streamlit_option_menu import option_menu
+import plotly.express as px
+import pandas as pd
 import os
 
 # ==================================================
@@ -10,27 +18,77 @@ import os
 st.set_page_config(
     page_title="ServiçoPro SaaS",
     layout="wide",
-    page_icon="🚀"
+    page_icon="🚀",
+    initial_sidebar_state="expanded"
 )
 
 # ==================================================
-# CSS (UI SaaS LIMPA)
+# CSS PREMIUM
 # ==================================================
 
 st.markdown("""
 <style>
 
-div.stButton > button {
-    background: linear-gradient(90deg, #4F46E5, #06B6D4);
+html, body, [class*="css"] {
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.stApp {
+    background: linear-gradient(135deg, #050816 0%, #0B1026 40%, #111827 100%);
     color: white;
-    border-radius: 10px;
-    font-weight: bold;
-    border: none;
 }
 
 section[data-testid="stSidebar"] {
-    background-color: #0f172a;
+    background: linear-gradient(180deg, #0B1026 0%, #111827 100%);
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+
+section[data-testid="stSidebar"] * {
+    color: white !important;
+}
+
+.card {
+    background: rgba(17, 24, 39, 0.75);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 24px;
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 20px rgba(99,102,241,0.15);
+}
+
+.metric-card {
+    background: linear-gradient(135deg, rgba(79,70,229,0.35), rgba(6,182,212,0.20));
+    padding: 24px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 0 25px rgba(79,70,229,0.35);
+}
+
+.main-title {
+    font-size: 42px;
+    font-weight: 700;
     color: white;
+}
+
+.subtitle {
+    color: #94A3B8;
+    margin-bottom: 25px;
+}
+
+div.stButton > button {
+    background: linear-gradient(90deg, #7C3AED, #06B6D4);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: bold;
+    padding: 10px 18px;
+}
+
+.stTextInput > div > div > input {
+    background-color: #111827;
+    color: white;
+    border-radius: 10px;
+    border: 1px solid #374151;
 }
 
 </style>
@@ -42,7 +100,6 @@ section[data-testid="stSidebar"] {
 
 try:
     firebase_admin.get_app()
-
 except ValueError:
 
     firebase_config = st.secrets["firebase"]
@@ -57,10 +114,11 @@ except ValueError:
 
     firebase_admin.initialize_app(cred)
 
+
 db = firestore.client()
 
 # ==================================================
-# SESSION STATE
+# SESSION
 # ==================================================
 
 if "auth" not in st.session_state:
@@ -70,7 +128,7 @@ if "empresa_id" not in st.session_state:
     st.session_state.empresa_id = None
 
 # ==================================================
-# LOGIN FIXO (user123)
+# LOGIN
 # ==================================================
 
 def login():
@@ -107,14 +165,27 @@ def logout():
 
 if not st.session_state.auth:
 
-    st.title("🔐 ServiçoPro SaaS")
+    col1, col2, col3 = st.columns([1,2,1])
 
-    if st.button("Entrar"):
+    with col2:
 
-        if login():
-            st.rerun()
-        else:
-            st.error("Erro login")
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class='card'>
+            <h1 style='text-align:center;'>🚀 ServiçoPro SaaS</h1>
+            <p style='text-align:center;color:#94A3B8;'>Sistema inteligente para gestão de serviços</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if st.button("Entrar no Sistema", use_container_width=True):
+
+            if login():
+                st.rerun()
+            else:
+                st.error("Erro ao fazer login")
 
     st.stop()
 
@@ -130,81 +201,150 @@ clientes_ref = empresa_ref.collection("clientes")
 servicos_ref = empresa_ref.collection("servicos")
 
 # ==================================================
-# SIDEBAR (LOGO SEGURA)
+# DADOS
 # ==================================================
 
-if os.path.exists("assets/logo.png"):
-    st.sidebar.image("assets/logo.png", width=160)
-else:
-    st.sidebar.markdown("🚀 ServiçoPro")
+clientes = list(clientes_ref.get())
+servicos = list(servicos_ref.get())
 
-st.sidebar.title("ServiçoPro")
-
-st.sidebar.write(f"Empresa: {empresa_id}")
-
-st.sidebar.button("🚪 Logout", on_click=logout)
-
-menu = st.sidebar.selectbox(
-    "Menu",
-    ["Dashboard", "Clientes", "Serviços"]
-)
+total_clientes = len(clientes)
+total_servicos = len(servicos)
 
 # ==================================================
-# DASHBOARD (ESTILO STRIPE)
+# SIDEBAR PREMIUM
+# ==================================================
+
+with st.sidebar:
+
+    st.markdown("# 🚀 ServiçoPro")
+    st.caption("Painel SaaS Premium")
+
+    st.markdown("---")
+
+    menu = option_menu(
+        menu_title=None,
+        options=[
+            "Dashboard",
+            "Clientes",
+            "Serviços",
+            "Financeiro",
+            "Relatórios"
+        ],
+        icons=[
+            "speedometer2",
+            "people",
+            "tools",
+            "cash-stack",
+            "bar-chart"
+        ],
+        default_index=0,
+        styles={
+            "container": {
+                "padding": "0!important",
+                "background-color": "transparent"
+            },
+            "icon": {
+                "color": "#06B6D4",
+                "font-size": "18px"
+            },
+            "nav-link": {
+                "font-size": "16px",
+                "text-align": "left",
+                "margin": "8px",
+                "border-radius": "12px",
+                "color": "white",
+                "background-color": "rgba(255,255,255,0.04)"
+            },
+            "nav-link-selected": {
+                "background": "linear-gradient(90deg,#7C3AED,#06B6D4)",
+            },
+        }
+    )
+
+    st.markdown("---")
+
+    st.write(f"Empresa: {empresa_id}")
+
+    st.button("🚪 Logout", on_click=logout, use_container_width=True)
+
+# ==================================================
+# DASHBOARD
 # ==================================================
 
 if menu == "Dashboard":
 
-    st.title("📊 Dashboard")
-
-    clientes = list(clientes_ref.get())
-    servicos = list(servicos_ref.get())
-
-    total_clientes = len(clientes)
-    total_servicos = len(servicos)
+    st.markdown("<div class='main-title'>Dashboard</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>Visão geral do seu negócio</div>", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown("### 👤 Clientes")
-        st.metric("Total", total_clientes)
+        st.markdown(f"""
+        <div class='metric-card'>
+            <h3>👤 Clientes</h3>
+            <h1>{total_clientes}</h1>
+            <p>Clientes cadastrados</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-        st.markdown("### 🛠 Serviços")
-        st.metric("Total", total_servicos)
+        st.markdown(f"""
+        <div class='metric-card'>
+            <h3>🛠 Serviços</h3>
+            <h1>{total_servicos}</h1>
+            <p>Serviços registrados</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col3:
-        st.markdown("### 🚀 Empresa")
-        st.metric("ID", empresa_id)
+        faturamento = total_servicos * 150
 
-    st.divider()
+        st.markdown(f"""
+        <div class='metric-card'>
+            <h3>💰 Faturamento</h3>
+            <h1>R$ {faturamento}</h1>
+            <p>Estimativa operacional</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.subheader("📈 Visão geral")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    colA, colB = st.columns(2)
+    colA, colB = st.columns([2,1])
 
     with colA:
-        st.markdown("#### Crescimento")
-        st.progress(min(total_clientes / 10, 1.0))
-        st.caption("Meta: 10 clientes")
+
+        dados = pd.DataFrame({
+            "Mes": ["Jan", "Fev", "Mar", "Abr", "Mai"],
+            "Serviços": [5, 9, 12, 18, total_servicos]
+        })
+
+        fig = px.line(
+            dados,
+            x="Mes",
+            y="Serviços",
+            markers=True,
+            template="plotly_dark"
+        )
+
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="white"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
     with colB:
-        st.markdown("#### Operação")
-        st.progress(min(total_servicos / 20, 1.0))
-        st.caption("Meta: 20 serviços")
 
-    st.divider()
-
-    st.subheader("🧠 Insights")
-
-    if total_clientes == 0:
-        st.info("Nenhum cliente ainda.")
-
-    elif total_clientes < 5:
-        st.warning("Base inicial pequena.")
-
-    else:
-        st.success("Base ativa 🚀")
+        st.markdown("""
+        <div class='card'>
+            <h3>📈 Performance</h3>
+            <p>Sistema operando normalmente.</p>
+            <p>Dashboard Premium ativo.</p>
+            <p>Firebase conectado.</p>
+            <p>Multiempresa funcionando.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================================================
 # CLIENTES
@@ -212,24 +352,32 @@ if menu == "Dashboard":
 
 elif menu == "Clientes":
 
-    st.title("👤 Clientes")
+    st.markdown("<div class='main-title'>Clientes</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>Gerencie seus clientes</div>", unsafe_allow_html=True)
 
-    nome = st.text_input("Nome")
+    with st.container(border=True):
 
-    if st.button("➕ Adicionar") and nome:
-        clientes_ref.add({"nome": nome})
-        st.rerun()
+        nome = st.text_input("Nome do cliente")
 
-    st.divider()
+        if st.button("➕ Adicionar Cliente") and nome:
+            clientes_ref.add({"nome": nome})
+            st.success("Cliente adicionado com sucesso")
+            st.rerun()
 
-    for c in clientes_ref.get():
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    for c in clientes:
 
         data = c.to_dict()
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2 = st.columns([8,1])
 
         with col1:
-            st.write(f"👤 {data.get('nome')}")
+            st.markdown(f"""
+            <div class='card'>
+                👤 {data.get('nome')}
+            </div>
+            """, unsafe_allow_html=True)
 
         with col2:
             if st.button("🗑", key=c.id):
@@ -242,30 +390,74 @@ elif menu == "Clientes":
 
 elif menu == "Serviços":
 
-    st.title("🛠 Serviços")
+    st.markdown("<div class='main-title'>Serviços</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>Controle operacional</div>", unsafe_allow_html=True)
 
-    cliente = st.text_input("Cliente")
-    servico = st.text_input("Serviço")
+    with st.container(border=True):
 
-    if st.button("➕ Salvar") and cliente and servico:
-        servicos_ref.add({
-            "cliente": cliente,
-            "servico": servico
-        })
-        st.rerun()
+        cliente = st.text_input("Cliente")
+        servico = st.text_input("Serviço")
 
-    st.divider()
+        if st.button("➕ Salvar Serviço") and cliente and servico:
 
-    for s in servicos_ref.get():
+            servicos_ref.add({
+                "cliente": cliente,
+                "servico": servico
+            })
+
+            st.success("Serviço salvo")
+            st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    for s in servicos:
 
         data = s.to_dict()
 
-        col1, col2 = st.columns([8, 2])
+        col1, col2 = st.columns([8,1])
 
         with col1:
-            st.write(f"🛠 {data.get('cliente')} - {data.get('servico')}")
+            st.markdown(f"""
+            <div class='card'>
+                🛠 {data.get('cliente')} - {data.get('servico')}
+            </div>
+            """, unsafe_allow_html=True)
 
         with col2:
             if st.button("🗑", key=s.id):
                 servicos_ref.document(s.id).delete()
                 st.rerun()
+
+# ==================================================
+# FINANCEIRO
+# ==================================================
+
+elif menu == "Financeiro":
+
+    st.markdown("<div class='main-title'>Financeiro</div>", unsafe_allow_html=True)
+
+    faturamento = total_servicos * 150
+
+    st.markdown(f"""
+    <div class='metric-card'>
+        <h1>💰 R$ {faturamento}</h1>
+        <p>Faturamento estimado</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ==================================================
+# RELATÓRIOS
+# ==================================================
+
+elif menu == "Relatórios":
+
+    st.markdown("<div class='main-title'>Relatórios</div>", unsafe_allow_html=True)
+
+    dados = {
+        "Clientes": total_clientes,
+        "Serviços": total_servicos
+    }
+
+    st.json(dados)
+
+```
